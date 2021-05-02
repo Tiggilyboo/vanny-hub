@@ -74,23 +74,8 @@ def run_server():
     # However, this can be overloaded by setting the single flag to False and
     # then supplying a dictionary of unit id to context mapping::
     #
-    #     slaves  = {
-    #         0x01: ModbusSlaveContext(...),
-    #         0x02: ModbusSlaveContext(...),
-    #         0x03: ModbusSlaveContext(...),
-    #     }
-    #     context = ModbusServerContext(slaves=slaves, single=False)
-    #
-    # The slave context can also be initialized in zero_mode which means that a
-    # request to address(0-7) will map to the address (0-7). The default is
-    # False which is based on section .4 of the specification, so address(0-7)
-    # will map to (1-8)::
-    #
-    #     store = ModbusSlaveContext(..., zero_mode=True)
-    # ----------------------------------------------------------------------- #
-    context = ModbusServerContext(slaves={
-        0x00: ModbusSlaveContext(),
-    }, single=False)
+    store = ModbusSlaveContext()
+    context = ModbusServerContext(slaves=store, single=True)
 
     # ----------------------------------------------------------------------- #
     # initialize the server information
@@ -100,26 +85,22 @@ def run_server():
     identity = ModbusDeviceIdentification()
     identity.VendorName = 'Pymodbus'
     identity.ProductCode = 'PM'
+    identity.VendorUrl = 'http://github.com/riptideio/pymodbus/'
     identity.ProductName = 'Pymodbus Server'
     identity.ModelName = 'Pymodbus Server'
     identity.MajorMinorRevision = version.short()
-
-    # socat -d -d PTY,link=/tmp/ptyp0,raw,echo=0,ispeed=9600 PTY,link=/tmp/ttyp0,raw,echo=0,ospeed=9600
-    # Ascii:
-    # StartSerialServer(context, identity=identity,
-    #                    port='/dev/ttyp0', timeout=1)
-
-    # RTU:
-    StartSerialServer(context, framer=ModbusRtuFramer, identity=identity,
-                       port='/dev/ttyUSB0', timeout=1, baudrate=9600, stopbits=2, bytesize=8)
-
-    # Binary
-    # StartSerialServer(context,
-    #                   identity=identity,
-    #                   framer=ModbusBinaryFramer,
-    #                   port='/dev/ttyp0',
-    #                   timeout=1)
+    
+    StartSerialServer(
+        context, 
+        framer=ModbusRtuFramer, 
+        identity=identity,
+        port='/dev/ttyUSB0', 
+        timeout=.05, 
+        baudrate=9600,
+        stopbits=2,
+        bytesize=8)
 
 
 if __name__ == "__main__":
     run_server()
+
