@@ -1,0 +1,15 @@
+.TH "building-old" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+building-oldUsing old, proprietary build system 
+ \- 
+.PP
+\fBWarning:\fP
+.RS 4
+The script-based build system will not be maintained in versions newer than 1\&.4\&. Please consider using CMake instead\&.
+.RE
+.PP
+Firstly, you will need to copy all files from \fIold-build-system\fP directory to the project root\&. Then you will be able to run \fC\&./genconf\&.sh\fP script to generate build configuration (details on usage are in its help message: \fC\&./genconf\&.sh --help\fP)\&. The available options more or less correspond to the ones described in \fBBuilding liblightmodbus\fP\&.
+.PP
+After the configuration is generated, you can use \fCmake\fP command to trigger the build\&. In order to build for AVR, use dedicated makeifile - \fCmake -f makefile-avr\fP\&. 

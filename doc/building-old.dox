@@ -1,0 +1,14 @@
+/**
+\page building-old Using old, proprietary build system
+
+\warning The script-based build system will not be maintained in versions newer than 1.4.
+Please consider using CMake instead.
+
+Firstly, you will need to copy all files from *old-build-system* directory to the project root. 
+Then you will be able to run `./genconf.sh` script to generate build configuration 
+(details on usage are in its help message: `./genconf.sh --help`). The available options 
+more or less correspond to the ones described in \ref building. 
+
+After the configuration is generated, you can use `make` command to trigger the build. 
+In order to build for AVR, use dedicated makeifile - `make -f makefile-avr`.
+*/

@@ -1,0 +1,74 @@
+sudo: required
+language: c
+branches:
+    except:
+        - packaging
+        - docsdevel
+
+before_install:
+    - sudo apt-get update
+
+install:
+    - sudo apt-get install gcc-avr binutils-avr avr-libc valgrind pastebinit cppcheck cmake
+    - pip install --user cpp-coveralls
+
+script:
+    - rm -rf build && mkdir build && cd build
+
+    #Normal build
+    - cmake ..
+    - make && cd ..
+    - rm -rf build && mkdir build && cd build
+
+    #AVR build
+    - cmake .. -DAVR="atmega328p"
+    - make && cd ..
+    - rm -rf build && mkdir build && cd build
+
+    #Static regs test
+    - cmake .. -DCOVERAGE_TEST="1" -DSTATIC_MEM_SLAVE_REQUEST=256 -DSTATIC_MEM_SLAVE_RESPONSE=256 -DSTATIC_MEM_MASTER_REQUEST=256 -DSTATIC_MEM_MASTER_RESPONSE=256 -DSTATIC_MEM_MASTER_DATA=256
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test static-mem
+    - rm -rf build && mkdir build && cd build
+
+    #Tiny static regs test
+    - cmake .. -DCOVERAGE_TEST="1" -DSTATIC_MEM_SLAVE_REQUEST=2 -DSTATIC_MEM_SLAVE_RESPONSE=2 -DSTATIC_MEM_MASTER_REQUEST=2 -DSTATIC_MEM_MASTER_RESPONSE=2 -DSTATIC_MEM_MASTER_DATA=2
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test static-mem-tiny
+    - rm -rf build && mkdir build && cd build
+
+    #Small static regs test
+    - cmake .. -DCOVERAGE_TEST="1" -DSTATIC_MEM_SLAVE_REQUEST=5 -DSTATIC_MEM_SLAVE_RESPONSE=5 -DSTATIC_MEM_MASTER_REQUEST=5 -DSTATIC_MEM_MASTER_RESPONSE=5 -DSTATIC_MEM_MASTER_DATA=5
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test static-mem-small
+    - rm -rf build && mkdir build && cd build
+
+    #Reasonably small static regs test
+    - cmake .. -DCOVERAGE_TEST="1" -DSTATIC_MEM_SLAVE_REQUEST=32 -DSTATIC_MEM_SLAVE_RESPONSE=32 -DSTATIC_MEM_MASTER_REQUEST=32 -DSTATIC_MEM_MASTER_RESPONSE=32 -DSTATIC_MEM_MASTER_DATA=32
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test static-mem-reasonably-small
+    - rm -rf build && mkdir build && cd build
+
+    #Master no data buffer
+    - cmake .. -DCOVERAGE_TEST="1" -DADD_MODULES="NO_MASTER_DATA_BUFFER;MASTER_INVASIVE_PARSING;EXPERIMENTAL" -DSTATIC_MEM_MASTER_REQUEST=256
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test master-buffer-tweaks
+    - rm -rf build && mkdir build && cd build
+
+    #Register/coil callbacks
+    - cmake .. -DCOVERAGE_TEST="1" -DADD_MODULES="REGISTER_CALLBACK;COIL_CALLBACK;EXPERIMENTAL"
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test reg-coil-callbacks
+    - rm -rf build && mkdir build && cd build
+
+    #Ordinary build, but for coverage testing
+    - cmake .. -DCOVERAGE_TEST="1"
+    - make && cd ..
+    - ./test/run-test.sh ./build/coverage-test main-test
+
+after_success:
+    - coveralls --verbose --exclude test/test.c
+    - find . -name "*.c" | xargs cppcheck > cppcheck.log
+    - TARBALL=$(date +liblightmodbus-travis-%Y-%m-%d--%H-%M-%S.tar)
+    - tar -cvf $TARBALL .
+    - curl -F file="@$TARBALL" https://filebin.ca/upload.php

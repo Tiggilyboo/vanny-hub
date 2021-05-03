@@ -1,0 +1,104 @@
+.TH "include/lightmodbus/slave/scoils.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/slave/scoils.h \- Slave's coil-related requests built-in parsing functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest0102\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes requests 01 (read multiple coils) and 02 (read multiple discrete inputs)\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest05\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes request 05 (write a single coil) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest15\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes request 15 (write multiple coils) "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Slave's coil-related requests built-in parsing functions\&. 
+
+
+.SH "Function Documentation"
+.PP 
+.SS "\fBModbusError\fP modbusParseRequest0102 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes requests 01 (read multiple coils) and 02 (read multiple discrete inputs)\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF01S\fP or \fCF02S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseRequest05 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes request 05 (write a single coil) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF05S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseRequest15 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes request 15 (write multiple coils) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF15S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

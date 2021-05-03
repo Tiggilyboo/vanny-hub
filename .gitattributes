@@ -1,0 +1,9 @@
+*.h linguist-language=C
+*.c linguist-language=C
+*.py linguist-language=python
+*.sh linguist-language=shell
+makefile linguist-language=makefile
+makefile-avr linguist-language=makefile
+makefile-coverage linguist-language=makefile
+.makefile-staticmem linguist-language=makefile
+.makefile-modules linguist-language=makefile

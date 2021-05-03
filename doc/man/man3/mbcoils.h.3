@@ -1,0 +1,190 @@
+.TH "include/lightmodbus/master/mbcoils.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/master/mbcoils.h \- Master's coil-related frame building functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest0102\fP (\fBModbusMaster\fP *status, uint8_t function, uint8_t address, uint16_t index, uint16_t count)"
+.br
+.RI "Builds request 01 (read multiple coils) or 02 (read multiple discrete inputs) frame\&. "
+.ti -1c
+.RI "static \fBModbusError\fP \fBmodbusBuildRequest01\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t count)"
+.br
+.RI "Builds request 01 (read multiple coils) frame\&. "
+.ti -1c
+.RI "static \fBModbusError\fP \fBmodbusBuildRequest02\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t count)"
+.br
+.RI "Builds request 02 (read multiple discrete inputs) frame\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest05\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t value)"
+.br
+.RI "Builds request 05 (write a single coil) frame\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest15\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t count, uint8_t *values)"
+.br
+.RI "Builds request 15 (write multiple coils) frame\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Master's coil-related frame building functions\&. 
+
+
+.SH "Function Documentation"
+.PP 
+.SS "static \fBModbusError\fP modbusBuildRequest01 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t count)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Builds request 01 (read multiple coils) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF01M\fP or \fCF02M\fP module (see \fBBuilding liblightmodbus\fP)
+.RE
+.PP
+Calls \fBmodbusBuildRequest0102\fP with 1 as the second parameter
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first coil 
+.br
+\fIcount\fP Number of coils to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest0102 (\fBModbusMaster\fP * status, uint8_t function, uint8_t address, uint16_t index, uint16_t count)"
+
+.PP
+Builds request 01 (read multiple coils) or 02 (read multiple discrete inputs) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF01M\fP or \fCF02M\fP module (see \fBBuilding liblightmodbus\fP) 
+.PP
+\fCmodbusParseRequest01\fP and \fCmodbusParseRequest02\fP macros are aliases of this function 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIfunction\fP Function to be used in the request (01 or 02) 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first discrete input/coil 
+.br
+\fIcount\fP Number of coils to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "static \fBModbusError\fP modbusBuildRequest02 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t count)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Builds request 02 (read multiple discrete inputs) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF01M\fP or \fCF02M\fP module (see \fBBuilding liblightmodbus\fP)
+.RE
+.PP
+Calls \fBmodbusBuildRequest0102\fP with 2 as the second parameter
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first discrete input 
+.br
+\fIcount\fP Number of discrete inputs to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest05 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t value)"
+
+.PP
+Builds request 05 (write a single coil) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF01M\fP or \fCF02M\fP module (see \fBBuilding liblightmodbus\fP)
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the coil 
+.br
+\fIvalue\fP Coil value to be written 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest15 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t count, uint8_t * values)"
+
+.PP
+Builds request 15 (write multiple coils) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCLIGHTMODBUS_F15M\fP macro to be defined 
+.PP
+Requires \fCF05M\fP module (see \fBBuilding liblightmodbus\fP)
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first coil 
+.br
+\fIcount\fP Number of coils to be written 
+.br
+\fIvalues\fP Coil values to be written (each bit corresponds to one coil) 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

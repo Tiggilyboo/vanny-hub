@@ -1,0 +1,221 @@
+.TH "include/lightmodbus/master/mbregs.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/master/mbregs.h \- Master's register-related frame building functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest0304\fP (\fBModbusMaster\fP *status, uint8_t function, uint8_t address, uint16_t index, uint16_t count)"
+.br
+.RI "Builds request 03 (read multiple holding registers) or 04 (read multiple input registers) frame\&. "
+.ti -1c
+.RI "static \fBModbusError\fP \fBmodbusBuildRequest03\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t count)"
+.br
+.RI "Builds request 03 (read multiple holding registers) frame\&. "
+.ti -1c
+.RI "static \fBModbusError\fP \fBmodbusBuildRequest04\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t count)"
+.br
+.RI "Builds request 04 (read multiple input registers) frame\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest06\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t value)"
+.br
+.RI "Builds request 06 (write a single holding register) frame\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest16\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t count, uint16_t *values)"
+.br
+.RI "Builds request 16 (write multiple holding registers) frame\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildRequest22\fP (\fBModbusMaster\fP *status, uint8_t address, uint16_t index, uint16_t andmask, uint16_t ormask)"
+.br
+.RI "Builds request 22 (mask-write holding register) frame\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Master's register-related frame building functions\&. 
+
+
+.SH "Function Documentation"
+.PP 
+.SS "static \fBModbusError\fP modbusBuildRequest03 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t count)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Builds request 03 (read multiple holding registers) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF03M\fP or \fCF04M\fP module (see \fBBuilding liblightmodbus\fP)
+.RE
+.PP
+Calls \fBmodbusBuildRequest0304\fP with 3 as the second parameter
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first register 
+.br
+\fIcount\fP Number of registers to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest0304 (\fBModbusMaster\fP * status, uint8_t function, uint8_t address, uint16_t index, uint16_t count)"
+
+.PP
+Builds request 03 (read multiple holding registers) or 04 (read multiple input registers) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF03M\fP or \fCF04M\fP module (see \fBBuilding liblightmodbus\fP) 
+.PP
+\fCmodbusParseRequest03\fP and \fCmodbusParseRequest04\fP macros are aliases of this function 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIfunction\fP Function to be used in the request (03 or 04) 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first register 
+.br
+\fIcount\fP Number of registers to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "static \fBModbusError\fP modbusBuildRequest04 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t count)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Builds request 04 (read multiple input registers) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF03M\fP or \fCF04M\fP module (see \fBBuilding liblightmodbus\fP)
+.RE
+.PP
+Calls \fBmodbusBuildRequest0304\fP with 4 as the second parameter
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first register 
+.br
+\fIcount\fP Number of registers to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest06 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t value)"
+
+.PP
+Builds request 06 (write a single holding register) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF06M\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the register 
+.br
+\fIvalue\fP The value to be written 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest16 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t count, uint16_t * values)"
+
+.PP
+Builds request 16 (write multiple holding registers) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF16M\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the first register 
+.br
+\fIcount\fP Number of registers to be written 
+.br
+\fIvalues\fP The value to be written 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusBuildRequest22 (\fBModbusMaster\fP * status, uint8_t address, uint16_t index, uint16_t andmask, uint16_t ormask)"
+
+.PP
+Builds request 22 (mask-write holding register) frame\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF22M\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to load with the request frame 
+.br
+\fIaddress\fP Address of slave to be requested 
+.br
+\fIindex\fP Address of the register 
+.br
+\fIandmask\fP The AND mask value 
+.br
+\fIormask\fP The OR mask value 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

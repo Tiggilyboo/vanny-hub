@@ -1,0 +1,281 @@
+.TH "include/lightmodbus/slave.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/slave.h \- General Modbus slave functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Data Structures"
+
+.in +1c
+.ti -1c
+.RI "struct \fBmodbusSlaveUserFunction\fP"
+.br
+.RI "Associates user defined parser function with the function ID\&. "
+.ti -1c
+.RI "struct \fBmodbusSlave\fP"
+.br
+.RI "Represents Modbus slave device's status and configuration\&. "
+.in -1c
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef struct \fBmodbusSlaveUserFunction\fP \fBModbusSlaveUserFunction\fP"
+.br
+.RI "Associates user defined parser function with the function ID\&. "
+.ti -1c
+.RI "typedef enum \fBmodbusRegisterQuery\fP \fBModbusRegisterQuery\fP"
+.br
+.RI "Represents register callback function\&. "
+.ti -1c
+.RI "typedef uint16_t(* \fBModbusRegisterCallbackFunction\fP) (\fBModbusRegisterQuery\fP query, \fBModbusDataType\fP datatype, uint16_t index, uint16_t value, void *ctx)"
+.br
+.RI "Type representing a pointer to the user-defined register callback function\&. "
+.ti -1c
+.RI "typedef struct \fBmodbusSlave\fP \fBModbusSlave\fP"
+.br
+.RI "Represents Modbus slave device's status and configuration\&. "
+.in -1c
+.SS "Enumerations"
+
+.in +1c
+.ti -1c
+.RI "enum \fBmodbusRegisterQuery\fP { \fBMODBUS_REGQ_R\fP, \fBMODBUS_REGQ_W\fP, \fBMODBUS_REGQ_R_CHECK\fP, \fBMODBUS_REGQ_W_CHECK\fP }
+.RI "Represents register callback function\&. ""
+.br
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusBuildException\fP (\fBModbusSlave\fP *status, uint8_t function, \fBModbusExceptionCode\fP code)"
+.br
+.RI "Builds an exception frame and stores it in the \fBModbusSlave\fP structure\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest\fP (\fBModbusSlave\fP *status)"
+.br
+.RI "Interprets incoming Modbus request frame located in the slave structure\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusSlaveInit\fP (\fBModbusSlave\fP *status)"
+.br
+.RI "Performs initialization of the \fBModbusSlave\fP structure\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusSlaveEnd\fP (\fBModbusSlave\fP *status)"
+.br
+.RI "Frees memory used by slave structure, previously initialized with \fBmodbusSlaveInit\fP\&. "
+.ti -1c
+.RI "static \fBModbusError\fP \fBmodbusBuildExceptionErr\fP (\fBModbusSlave\fP *status, uint8_t function, \fBModbusExceptionCode\fP code, \fBModbusFrameError\fP parseError)"
+.br
+.RI "Handles Modbus parsing errors\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+General Modbus slave functions\&. 
+
+
+.PP
+\fBNote:\fP
+.RS 4
+This header file is suitable for C++ 
+.RE
+.PP
+
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef uint16_t( * ModbusRegisterCallbackFunction) (\fBModbusRegisterQuery\fP query, \fBModbusDataType\fP datatype, uint16_t index, uint16_t value, void *ctx)"
+
+.PP
+Type representing a pointer to the user-defined register callback function\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBUser-defined Modbus register callback function\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIquery\fP A register query (see \fBModbusRegisterQuery\fP) 
+.br
+\fIdatatype\fP Modbus data type 
+.br
+\fIindex\fP Address of the register 
+.br
+\fIvalue\fP Value of the register (only used with write access queries) 
+.br
+\fIctx\fP User's context data (passed from \fBModbusSlave::registerCallbackContext\fP) 
+.RE
+.PP
+
+.SS "typedef enum \fBmodbusRegisterQuery\fP  \fBModbusRegisterQuery\fP"
+
+.PP
+Represents register callback function\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCREGISTER_CALLBACK\fP or \fCCOIL_CALLBACK\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBUser-defined Modbus register callback function\fP 
+.RE
+.PP
+
+.SS "typedef struct \fBmodbusSlaveUserFunction\fP  \fBModbusSlaveUserFunction\fP"
+
+.PP
+Associates user defined parser function with the function ID\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCSLAVE_USER_FUNCTIONS\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+user-functions 
+.RE
+.PP
+
+.SH "Enumeration Type Documentation"
+.PP 
+.SS "enum \fBmodbusRegisterQuery\fP"
+
+.PP
+Represents register callback function\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCREGISTER_CALLBACK\fP or \fCCOIL_CALLBACK\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBUser-defined Modbus register callback function\fP 
+.RE
+.PP
+
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIMODBUS_REGQ_R \fP\fP
+Requests callback function to return register value\&. 
+.TP
+\fB\fIMODBUS_REGQ_W \fP\fP
+Requests callback function to write the register\&. 
+.TP
+\fB\fIMODBUS_REGQ_R_CHECK \fP\fP
+Asks callback function if register can be read\&. 
+.TP
+\fB\fIMODBUS_REGQ_W_CHECK \fP\fP
+Asks callback function if register can be written\&. 
+.SH "Function Documentation"
+.PP 
+.SS "\fBModbusError\fP modbusBuildException (\fBModbusSlave\fP * status, uint8_t function, \fBModbusExceptionCode\fP code)"
+
+.PP
+Builds an exception frame and stores it in the \fBModbusSlave\fP structure\&. The exception frame is only built if the request was not broadcasted\&.
+.PP
+Updates \fBModbusSlave::lastException\fP member in provided \fBModbusSlave\fP structure\&.
+.PP
+This function is used by more sophisticated \fBmodbusBuildExceptionErr()\fP\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work on 
+.br
+\fIfunction\fP Function code of function throwing the exception 
+.br
+\fIcode\fP A Modbus exception code 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code\&. Unlike other library functions, this one returns \fBMODBUS_ERROR_EXCEPTION\fP on success as a form of information that exception had been thrown\&. If the request was broadcasted, returns \fBMODBUS_ERROR_OK\fP 
+.RE
+.PP
+
+.SS "static \fBModbusError\fP modbusBuildExceptionErr (\fBModbusSlave\fP * status, uint8_t function, \fBModbusExceptionCode\fP code, \fBModbusFrameError\fP parseError)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Handles Modbus parsing errors\&. This function causes an exception frame to be built by \fBmodbusBuildException\fP, but additionally stores the more verbose error code in the provided slave structure\&. This routine should be used for handling parsing errors, whilst the \fBmodbusBuildException()\fP should be used for building exception frames with no side effects\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work on 
+.br
+\fIfunction\fP Function code of the function throwing the exception 
+.br
+\fIcode\fP Exception code to be thrown 
+.br
+\fIparseError\fP More specific error code 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+An \fBModbusError\fP error code\&. Unlike most library functions, this one returns \fCMODBUS_ERROR_PARSE\fP (when exception frame is not supposed to be built) or \fCMODBUS_ERROR_EXCEPTION\fP (when exception frame has been successfully built) on success\&. This is because, these are the values that shall be returned by a parsing function upon facing parsing problem\&. 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseRequest (\fBModbusSlave\fP * status)"
+
+.PP
+Interprets incoming Modbus request frame located in the slave structure\&. Firstly, the function frees memory allocated for the previous response frame (\fBModbusSlave::response\fP) (if dynamic memory allocation is enabled)\&. Then, integrity of the frame is verified with \fBmodbusCRC\fP function\&.
+.PP
+If the frame CRC is correct, the destination slave address is checked\&. Frames meant for other slave devices are discarded at this point\&.
+.PP
+Before attempting to parse the frame with one of the built-in parsing functions, the array of user-defined parsing functions is searched\&. It is important to mention that functions defined by user override the default ones\&. That is to say, a NULL pointer in the function array can disable support of specific function\&.
+.PP
+If matching function is found, it is exected and \fBmodbusParseRequest()\fP returns the same error code the parsing function code had returned\&. Otherwise, an exception informing the master device of illegal function code is constructed, and \fBMODBUS_ERROR_EXCEPTION\fP is returned\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work on 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code\&. 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusSlaveEnd (\fBModbusSlave\fP * status)"
+
+.PP
+Frees memory used by slave structure, previously initialized with \fBmodbusSlaveInit\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work on 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusSlaveInit (\fBModbusSlave\fP * status)"
+
+.PP
+Performs initialization of the \fBModbusSlave\fP structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to be initialized 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code\&. 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

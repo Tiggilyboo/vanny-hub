@@ -1,0 +1,26 @@
+/**
+\page advanced-configuration Advanced configuration
+
+
+### Disabling master's incoming data buffer
+\warning This feature is considered experimental and requires `EXPERIMENTAL` module to be included
+
+If the `NO_MASTER_DATA_BUFFER` module is included, no storage for incoming
+data will be allocated. Instead the \ref ModbusMaster::data's `coil` and `regs` pointers
+point to where the regsiter/coil data starts in the \ref ModbusMaster::response frame.
+
+\note The data in Modbus frames is in big-endian format. Please remember about that
+when you're processing it.
+
+\warning Disabling master's data buffer may be cause of unaligned memory access, which may cause problems on some platforms.
+Please be cautious when accessing data through \ref ModbusMaster::data::regs pointer.
+
+### Invasive parsing
+\note This feature shall be used with `NO_MASTER_DATA_BUFFER` module included
+
+If the `MASTER_INVASIVE_PARSING` module is included, the master's parsing functions
+will be allowed to alter the response frame contents. It enables the parsing function
+to convert the incoming data to currently used system's endianness, so it can be safely accessed
+directly afterwards.
+
+*/

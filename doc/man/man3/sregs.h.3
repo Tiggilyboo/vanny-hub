@@ -1,0 +1,131 @@
+.TH "include/lightmodbus/slave/sregs.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/slave/sregs.h \- Slave's register-related built-in parsing functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest0304\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes request 03 (read multiple holding registers) and 04 (read multiple input registers) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest06\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes request 06 (write multiple holding registers) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest16\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes request 15 (write multiple holding registers) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseRequest22\fP (\fBModbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Processes request 22 (mask-write holding register) "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Slave's register-related built-in parsing functions\&. 
+
+
+.SH "Function Documentation"
+.PP 
+.SS "\fBModbusError\fP modbusParseRequest0304 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes request 03 (read multiple holding registers) and 04 (read multiple input registers) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF03S\fP or \fCF04S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseRequest06 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes request 06 (write multiple holding registers) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF06S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseRequest16 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes request 15 (write multiple holding registers) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF16S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseRequest22 (\fBModbusSlave\fP * status, \fBModbusParser\fP * parser)"
+
+.PP
+Processes request 22 (mask-write holding register) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF22S\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The slave structure to work with 
+.br
+\fIparser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

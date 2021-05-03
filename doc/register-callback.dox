@@ -1,0 +1,79 @@
+/**
+\page register-callback User-defined Modbus register callback function
+\note This feature requires `REGISTER_CALLBACK` or `COIL_CALLBACK` module (see \ref building).
+
+\note Register callback function is still considered an experimental feature.
+In order to include this functionality during build process, please include
+`EXPERIMENTAL` module (see \ref building).
+
+Liblightmodbus allows user to define his own register/coil callback function
+used for fetching register values instead of the \ref ModbusSlave::registers
+\ref ModbusSlave::coils arrays. This feature can be helpful when implementing
+non-continuous register ranges that would otherwise mean huge waste of memory.
+
+It is important to mention, that once callback function is enabled for registers,
+it has to handle input registers as well. The same goes for coils - the coil
+callback function has to handle discrete inputs as well. The register-array
+and register-callback system cannot coexist.
+
+The pointer to the callback function (\ref ModbusRegisterCallbackFunction) should 
+be stored in \ref ModbusSlave::registerCallback before \ref modbusSlaveInit() 
+is called. There's only one callback function for all data types and it should
+have following form:
+
+~~~{.c}
+uint16_t callback( ModbusRegisterQuery query, ModbusDataType datatype, uint16_t index, uint16_t value, void *ctx )
+~~~
+
+The register/coil callback is an user-defined function determining if certain register or coil can be 
+accessed and performing virtual register reads and writes. 
+Below is an example of register callback function simply mapping register accesses to an array:
+~~~{.c}
+uint16_t regs[16], iregs[16]; //Holding registers and input registers arrays
+uint8_t writeacc[16]; //Some write locks
+
+uint16_t rcallback( ModbusRegisterQuery query, ModbusDataType datatype, uint16_t index, uint16_t value, void *ctx )
+{
+	//All can be read
+	if ( query == MODBUS_REGQ_R_CHECK ) return 1;
+	
+	//writeacc determines if holding register can be written
+	if ( query == MODBUS_REGQ_W_CHECK ) return writeacc[index];
+
+	//Read
+	if ( query == MODBUS_REGQ_R )
+	{
+		if ( datatype == MODBUS_HOLDING_REGISTER ) return regs[index];
+		if ( datatype == MODBUS_INPUT_REGISTER ) return iregs[index];
+	}
+
+	//Write
+	if ( query == MODBUS_REGQ_W && datatype == MODBUS_HOLDING_REGISTER )
+		iregs[index] = value;
+
+	return 0;
+}
+~~~
+
+The first function argument determines query type. 
+Two types of register queries are distinguished - read/write requests (\ref MODBUS_REGQ_R, \ref MODBUS_REGQ_W)
+and read/write access queries (\ref MODBUS_REGQ_R_CHECK, \ref MODBUS_REGQ_W_CHECK).
+
+Upon reception of access query, the function shall return 1 if certain kind of access is granted
+to register of type determined by second argument of type \ref ModbusDataType and index determined
+by third argument. Otherwise 0 shall be returned. 
+
+If the callback function denies access to certain register, this results in slave device returning 
+\ref MODBUS_EXCEP_SLAVE_FAILURE exception frame. When callback function receives a read request it shall return
+16-bit unsigned integer value of the register. If it receives a write request, the register should be written with
+value from the fourth parameter.
+
+Liblightmodbus guarantees that no write requests will be ever made for discrete input and input register types.
+Neither will it request to read/write some register after the callback function denied certain kind of access for it.
+Access rights for registers will always be checked before reading/writing data. It's also guaranteed that the index
+argument will always be less than count of certain type registers set in \ref ModbusSlave.
+
+\warning Even though it's clearly stated what kind of queries will never be made by liblightmodbus internal Modbus
+functions, beware of your own Modbus functions.
+
+*/

@@ -1,0 +1,30 @@
+.TH "modbusMasterUserFunction" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+modbusMasterUserFunction \- Associates user-defined response parser function with the function ID\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.PP
+\fC#include <master\&.h>\fP
+.SS "Data Fields"
+
+.in +1c
+.ti -1c
+.RI "uint8_t \fBfunction\fP"
+.br
+.RI "The function code\&. "
+.ti -1c
+.RI "\fBModbusError\fP(* \fBhandler\fP )(struct \fBmodbusMaster\fP *status, \fBModbusParser\fP *parser, \fBModbusParser\fP *requestParser)"
+.br
+.RI "Pointer to the user defined parsing function\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Associates user-defined response parser function with the function ID\&. 
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

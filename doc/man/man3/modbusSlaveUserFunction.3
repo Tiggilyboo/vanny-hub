@@ -1,0 +1,64 @@
+.TH "modbusSlaveUserFunction" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+modbusSlaveUserFunction \- Associates user defined parser function with the function ID\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.PP
+\fC#include <slave\&.h>\fP
+.SS "Data Fields"
+
+.in +1c
+.ti -1c
+.RI "uint8_t \fBfunction\fP"
+.br
+.RI "The function code\&. "
+.ti -1c
+.RI "\fBModbusError\fP(* \fBhandler\fP )(struct \fBmodbusSlave\fP *status, \fBModbusParser\fP *parser)"
+.br
+.RI "Pointer to the user defined function\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Associates user defined parser function with the function ID\&. 
+
+
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCSLAVE_USER_FUNCTIONS\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+user-functions 
+.RE
+.PP
+
+.SH "Field Documentation"
+.PP 
+.SS "\fBModbusError\fP( * modbusSlaveUserFunction::handler) (struct \fBmodbusSlave\fP *status, \fBModbusParser\fP *parser)"
+
+.PP
+Pointer to the user defined function\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP Slave structure to work with 
+.br
+\fIparser\fP The parser structure containing frame data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

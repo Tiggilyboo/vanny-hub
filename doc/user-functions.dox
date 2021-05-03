@@ -1,0 +1,104 @@
+/**
+\page user-functions User-defined Modbus functions
+\note This feature requires `SLAVE_USER_FUNCTIONS` or `MASTER_USER_FUNCTIONS` module (see \ref building).
+
+Liblightmodbus allows user to define his own request/response parsing functions. 
+
+## Slave's user-defined functions
+
+In order to provide library hint which functions shall be treated differently,
+user should set up an array of \ref ModbusSlaveUserFunction structures and provide pointer 
+to it in \ref ModbusSlave::userFunctions. The number of user-defined functions in 
+the array should be written to \ref ModbusSlave::userFunctionCount. See the example below:
+
+~~~{.c}
+static ModbusSlaveUserFunction userf[2] =
+{
+	{77, foo},
+	{16, NULL},
+};
+slave.userFunctions = userf;
+slave.userFunctionCount = 2;
+~~~
+
+This code causes the library to attempt to parse request 77 with some `foo()` function
+and ignore request 16. 
+
+\warning User-defined functions override built-in functions
+
+The user-defined functions must have following form:
+~~~{.c}
+ModbusError userfun( ModbusSlave *status, ModbusParser *parser )
+~~~
+
+The `foo` function could be defined for example as:
+~~~{.c}
+ModbusError foo( ModbusSlave *status, ModbusParser *parser )
+{
+	//Throw exception if slave address is divisible by 2
+	if ( parser->base.address % 2 == 0 ) 
+		return modbusBuildException( status, parser->base.function, MODBUS_EXCEPTION_SLAVE_FAILURE );
+	
+	//Return empty frame in response
+	//Assumes static slave response buffer is disabled
+	status->response.frame = calloc( 16, 1 );
+	status->response.length = 16;
+
+    //Relies on fact that CRC of zeros is 0
+
+	//Successful exit	
+	return MODBUS_OK;
+}
+~~~
+
+This function causes slaves with addresses divisible by 2 to return an exception upon receiving
+a frame with function code 77. The odd-numbered slaves respond with 16 byte frame filled with zeros.
+This is just a silly example, so please see the real guidelines for used-defined functions below.
+
+### User-defined function guidelines
+ - When building an exception frame with \ref modbusBuildException, make sure you return the value it gave you when you return from the parsing function. 
+ - Be aware of big-endian data - \ref modbusMatchEndian is your friend.
+ - Make sure you do not respond when the request frame is broadcasted.
+ - Always know if you built library with dynamic memory allocation enabled. This affects the way you write data to the response buffer.
+ - Liblightmodbus guarantees that you can access data in \ref ModbusParser `base` structure - that means you know the function code and slave address.
+ - If dynamic response buffer allocation is enabled, the \ref ModbusSlave::response frame buffer will be automatically freed by next \ref modbusParseRequest
+
+If that's not enough information for you, take a look at some real request parsing functions,
+for example in `src/slave/sregs.c`.
+
+## Master side user-functions
+
+Setting up user-defined functions on master side is very similar
+to setting them up on the slave side. By analogy \ref ModbusMaster::userFunctions
+and \ref ModbusMaster::userFunctionCount need to be set up.
+
+~~~{.c}
+static ModbusMasterUserFunction userf[2] =
+{
+	{77, bar},
+	{16, NULL},
+};
+master.userFunctions = userf;
+master.userFunctionCount = 2;
+~~~
+
+\warning User-defined functions override built-in functions
+
+The parsing function, however, needs to look a bit differently:
+~~~{.c}
+ModbusError userf( ModbusMaster *status, ModbusParser *parser, ModbusParser *requestParser )
+~~~
+
+The difference is the `requestParser` parameter - it gives you access to the request frame to which
+response you are parsing.
+
+### User-defined function guidelines
+ - Be aware of big-endian data - \ref modbusMatchEndian is your friend.
+ - Always know if you built library with dynamic memory allocation enabled. This affects the way you write data to the response buffer.
+ - Liblightmodbus guarantees that you can access data in \ref ModbusParser `base` structure - that means you know the function code and slave address.
+ - If dynamic response buffer allocation is enabled, the \ref ModbusMaster::data buffers will be automatically freed by next \ref modbusParseResponse
+ - If you encounter a parsing error, return \ref MODBUS_ERROR_PARSE
+
+Please take a look at `src/master/mpregs.c` for example parsing functions.
+
+*/

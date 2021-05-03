@@ -1,0 +1,24 @@
+/**
+\page static-mem Disabling dynamic memory allocation
+
+In embedded applications it's often desirable to avoid dynamic memory allocation
+for performance and/or safety reasons. In its configuration process, liblightmodbus allows user to disable
+dynamic memory allocation.
+
+Defining following CMake variables during configuration will have
+effect on the way memory is allocated in certain places:
+ - STATIC_MEM_SLAVE_REQUEST - replaces \ref ModbusSlave::request frame pointer with fixed-size buffer
+ - STATIC_MEM_SLAVE_RESPONSE - replaces \ref ModbusSlave::response frame pointer with fixed-size buffer
+ - STATIC_MEM_MASTER_REQUEST - replaces \ref ModbusMaster::request frame pointer with fixed-size buffer
+ - STATIC_MEM_MASTER_RESPONSE - replaces \ref ModbusMaster::response frame pointer with fixed-size buffer
+ - STATIC_MEM_MASTER_DATA - replaces \ref ModbusMaster::data coil and registers data pointers with fixed-size buffers
+
+\warning `STATIC_MEM_MASTER_DATA` and `NO_MASTER_DATA_BUFFER` modules cannot be used at once.
+
+For example, following CMake invocation configures the library so that the slave's request buffer
+is only 128 bytes long.
+
+    cmake -DSTATIC_MEM_SLAVE_REQUEST=128 ..
+
+For more information on how to build the library, see \ref building.
+*/
