@@ -11,56 +11,23 @@
 #define UART_SBITS 2
 #define RTS_PIN 22
 
-ModbusMaster master;
-uint8_t resp;
+#define SLAVE_ADDR_DCC50S       0x0F
+#define REG_DCC50S_AUX_SOC      0x100
+#define REG_DCC50S_AUX_V        0x101
+#define REG_DCC50S_MAX          0x102
+#define REG_DCC50S_TEMPERATURE  0x103
+#define REG_DCC50S_ALT_V        0x104
+#define REG_DCC50S_ALT_A        0x105
+#define REG_DCC50S_ALT_W        0x106
+#define REG_DCC50S_SOL_V        0x107
+#define REG_DCC50S_SOL_A        0x108
+#define REG_DCC50S_SOL_W        0x109
+#define REG_DCC50S_DAY_COUNT    0x10F
+#define REG_DCC50S_CHARGE_STATE 0x114
 
-void debug_master()
-{
-	int i;
-	printf( "\n" );
-
-  if (master.data.type != 0 || master.data.count > 0){
-	  printf( "Received data: slave: %02x, addr: %02x, count: %d, type: %02x\n",
-		  master.data.address, master.data.index, master.data.count, master.data.type );
-	  printf( "\tValues:" );
-  }
-	switch ( master.data.type )
-	{
-		case MODBUS_HOLDING_REGISTER:
-		case MODBUS_INPUT_REGISTER:
-			for ( i = 0; i < master.data.count; i++ )
-				printf( " %02x", master.data.regs[i] );
-			break;
-
-		case MODBUS_COIL:
-		case MODBUS_DISCRETE_INPUT:
-			for ( i = 0; i < master.data.count; i++ )
-				printf( " %02x", modbusMaskRead( master.data.coils, master.data.length, i ) );
-			break;
-	}
-
-  if(master.request.length > 0){
-    printf( "\nRequest:" );
-    for ( i = 0; i < master.request.length; i++ )
-      printf( " %02x", master.request.frame[i] );
-    printf( "\n" );
-  }
-
-  if(master.response.length > 0){
-    printf( "Response:" );
-    for ( i = 0; i < master.response.length; i++ )
-      printf( " %02x", master.response.frame[i] );
-    printf( "\n" );
-  }
-
-  if(resp != 0)
-    printf("Code: %d\n", resp);
-}
-
-void destroy_modbus() {
-  modbus_close(&master);
-  modbus_free(&master);
-}
+static ModbusMaster master;
+static uint16_t char_delay_us = 1562500;  
+static uint16_t frame_delay_us = 3645833;
 
 void init_modbus() {
   uart_init(uart0, UART_BR);
@@ -80,18 +47,16 @@ void init_modbus() {
   modbusMasterInit(&master);
 }
 
-inline void set_rts(bool on) {
+static inline void set_rts(bool on) {
   gpio_put(RTS_PIN, on ? 1 : 0);
 }
 
-// Example: 0f03020000d185 
-void read_response() {
+static inline void read_response() {
   unsigned int length = 0;
-  unsigned short expected_length = 0;
-  unsigned char buf[255];
+  uint8_t frame[255];
     
   printf("Waiting on response... ");
-  uart_is_readable_within_us(uart0, 500000);
+  uart_is_readable_within_us(uart0, 50000);
   if(!uart_is_readable(uart0)) {
     printf("RX empty.");
     return;
@@ -99,27 +64,29 @@ void read_response() {
 
   printf("Got: ");
   while(uart_is_readable(uart0)) {
-    buf[length] = uart_getc(uart0);
-    printf("%02x ", buf[length]);
+    frame[length] = uart_getc(uart0);
+    printf("%02x ", frame[length]);
     if(length >= 255){
-      printf("Read buffer overflow!");
+      printf("RX frame buffer overflow!");
       break;
     }
     length++;
   
     // char delay
-    busy_wait_us(5000);
+    busy_wait_us(5900);
   }
-
   printf("\n");
+
+  // Set response frame
+  master.response.frame = frame;
+  master.response.length = length;
 }
 
 void flush_rx() {
   char c;
   printf("Flushing RX: ");
   if(!uart_is_readable(uart0)) {
-    printf("uart0 is not readable...");
-    return;
+    printf("empty.");
   }
   while(uart_is_readable(uart0)) {
     c = uart_getc(uart0);
@@ -128,15 +95,14 @@ void flush_rx() {
   printf("\n");
 }
 
-void send_request() {
+static inline void send_request() {
   flush_rx();  
 
-  printf("Sending Request: ");
+  printf("Sending ");
   int i;
   for(i = 0; i < master.request.length; i++){
     printf("%02x ", master.request.frame[i]);
   }
-  printf("\n");
 
   while(!uart_is_writable(uart0))
     busy_wait_us(5000);
@@ -147,12 +113,77 @@ void send_request() {
     busy_wait_us(5000);
   }
   set_rts(false);
-
-  printf("Sent.\n");
+  printf(" Sent.\n");
 
   flush_rx();
+}
 
-  debug_master();
+static inline void build_request(uint16_t address, uint16_t count) { 
+  uint8_t resp;
+  resp = modbusBuildRequest03(&master, SLAVE_ADDR_DCC50S, address, count);
+  if(resp != MODBUS_OK) {
+    printf("Unable to build request: %d\n", resp);
+    switch (resp) {
+      case MODBUS_ERROR_BUILD:
+        printf("build error: %d\n", master.buildError);
+    }
+  }
+}
+
+static inline uint16_t* parse_response() {
+  int i;
+  ModbusError err;
+
+  err = modbusParseResponse(&master);
+  if(err != MODBUS_OK) {
+    // TODO
+    printf("Slave threw exception: %d\n", master.exception.code);
+    return NULL;
+  }
+
+  switch(master.data.type){
+    case MODBUS_HOLDING_REGISTER:
+    case MODBUS_INPUT_REGISTER:
+    case MODBUS_DISCRETE_INPUT:
+      printf("Register %x (%d): ", master.data.index, master.data.count);
+      for(i = 0; i < master.data.length; i++){
+        printf("%02x ", master.data.regs[i]);
+      }
+      printf("\n");
+      return master.data.regs;
+
+    case MODBUS_COIL:
+      printf("Coil %x (%d): ", master.data.index, master.data.count);
+      for(i = 0; i < master.data.length; i++){
+        printf( "%x ", modbusMaskRead(master.data.coils, master.data.length, i) );
+      }
+      printf("\n");
+      return master.data.coils;
+
+    default:
+      return NULL;
+  }
+}
+
+uint16_t* read_register(uint16_t address) {
+  build_request(address, 1);
+  send_request();
+  read_response();
+  return parse_response();
+}
+
+void update_display() {
+  read_register(REG_DCC50S_ALT_A);
+  read_register(REG_DCC50S_ALT_V);
+  read_register(REG_DCC50S_ALT_V);
+
+  read_register(REG_DCC50S_SOL_A);
+  read_register(REG_DCC50S_SOL_V);
+  read_register(REG_DCC50S_SOL_W);
+
+  read_register(REG_DCC50S_AUX_SOC);
+  read_register(REG_DCC50S_AUX_V);
+  read_register(REG_DCC50S_TEMPERATURE);
 }
 
 int main() {
@@ -169,31 +200,11 @@ int main() {
   sleep_ms(3000);
   init_modbus();
 
-  resp = modbusBuildRequest03(&master, 0x0F, 0, 1);
-  if(resp != MODBUS_OK) {
-    printf("Unable to build request: %d\n", resp);
-    switch (resp) {
-      case MODBUS_ERROR_BUILD:
-        printf("build error: %d\n", master.buildError);
-    }
-  }
-
   while(1) {
-    if(uart_is_enabled(uart0)) {
-      send_request();
-    
-      debug_master();
-      read_response();
-
-    } else {
-      printf("uart0 is not enabled...");
-    }
-
-    gpio_put(LED_PIN, 1);
-    sleep_ms(5000);
+    update_display();
     gpio_put(LED_PIN, 0);
+    sleep_ms(5000);
+    gpio_put(LED_PIN, 1);
   }
-
-  destroy_modbus();
 }
 

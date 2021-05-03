@@ -49,7 +49,34 @@ def run_server():
     # the data while the sparse can. Once again, there are devices that exhibit
     # both forms of behavior::
     #
-    #     block = ModbusSparseDataBlock({0x00: 0, 0x05: 1})
+    chargingAlt = 0b0000000010000000;
+
+    block = ModbusSparseDataBlock({
+        # charge state
+        0x100: 1,
+        # error codes (low)
+        0x101: 2,
+        # error codes (high)
+        0x102: 3,
+        # controller temperature
+        0x103: 21,
+        # altenator voltage
+        0x104: 1348,
+        # altenator amps
+        0x105: 40,
+        # altenator watts
+        0x106: 496,
+        # solar v
+        0x107: 304,
+        # solar a
+        0x108: 20,
+        # solar w
+        0x109: 608,
+        # day count
+        0x10F: 1,
+        # charge state
+        0x114: 0,
+    })
     #     block = ModbusSequentialDataBlock(0x00, [0]*5)
     #
     # Alternately, you can use the factory methods to initialize the DataBlocks
@@ -74,7 +101,7 @@ def run_server():
     # However, this can be overloaded by setting the single flag to False and
     # then supplying a dictionary of unit id to context mapping::
     #
-    store = ModbusSlaveContext()
+    store = ModbusSlaveContext(hr=block, ir=block)
     context = ModbusServerContext(slaves=store, single=True)
 
     # ----------------------------------------------------------------------- #
@@ -94,7 +121,7 @@ def run_server():
         context, 
         framer=ModbusRtuFramer, 
         identity=identity,
-        port='/dev/ttyUSB0', 
+        port='/dev/ttyUSB1', 
         timeout=.05, 
         baudrate=9600,
         stopbits=2,
