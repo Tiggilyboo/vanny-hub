@@ -1,0 +1,383 @@
+.TH "include/lightmodbus/lightmodbus.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/lightmodbus.h \- Core Modbus functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef enum \fBmodbusError\fP \fBModbusError\fP"
+.br
+.RI "Represents a library runtime error code\&. "
+.ti -1c
+.RI "typedef enum \fBmodbusFrameError\fP \fBModbusFrameError\fP"
+.br
+.RI "Provides more information on frame building/parsing error\&. "
+.ti -1c
+.RI "typedef enum \fBmodbusExceptionCode\fP \fBModbusExceptionCode\fP"
+.br
+.RI "Represents a Modbus exception code, defined by the standart\&. "
+.ti -1c
+.RI "typedef enum \fBmodbusDataType\fP \fBModbusDataType\fP"
+.br
+.RI "Stores information about Modbus data types\&. "
+.in -1c
+.SS "Enumerations"
+
+.in +1c
+.ti -1c
+.RI "enum \fBmodbusError\fP { \fBMODBUS_ERROR_OK\fP = 0, \fBMODBUS_ERROR_EXCEPTION\fP = 1, \fBMODBUS_ERROR_ALLOC\fP, \fBMODBUS_ERROR_OTHER\fP, \fBMODBUS_ERROR_NULLPTR\fP, \fBMODBUS_ERROR_PARSE\fP, \fBMODBUS_ERROR_BUILD\fP, \fBMODBUS_OK\fP = MODBUS_ERROR_OK }
+.RI "Represents a library runtime error code\&. ""
+.br
+.ti -1c
+.RI "enum \fBmodbusFrameError\fP { \fBMODBUS_FERROR_OK\fP = MODBUS_OK, \fBMODBUS_FERROR_CRC\fP, \fBMODBUS_FERROR_LENGTH\fP, \fBMODBUS_FERROR_COUNT\fP, \fBMODBUS_FERROR_VALUE\fP, \fBMODBUS_FERROR_RANGE\fP, \fBMODBUS_FERROR_NOSRC\fP, \fBMODBUS_FERROR_NOREAD\fP, \fBMODBUS_FERROR_NOWRITE\fP, \fBMODBUS_FERROR_NOFUN\fP, \fBMODBUS_FERROR_BADFUN\fP, \fBMODBUS_FERROR_NULLFUN\fP, \fBMODBUS_FERROR_MISM_FUN\fP, \fBMODBUS_FERROR_MISM_ADDR\fP, \fBMODBUS_FERROR_MISM_INDEX\fP, \fBMODBUS_FERROR_MISM_COUNT\fP, \fBMODBUS_FERROR_MISM_VALUE\fP, \fBMODBUS_FERROR_MISM_MASK\fP, \fBMODBUS_FERROR_BROADCAST\fP }
+.RI "Provides more information on frame building/parsing error\&. ""
+.br
+.ti -1c
+.RI "enum \fBmodbusExceptionCode\fP { \fBMODBUS_EXCEP_ILLEGAL_FUNCTION\fP = 1, \fBMODBUS_EXCEP_ILLEGAL_ADDRESS\fP = 2, \fBMODBUS_EXCEP_ILLEGAL_VALUE\fP = 3, \fBMODBUS_EXCEP_SLAVE_FAILURE\fP = 4, \fBMODBUS_EXCEP_ACK\fP = 5, \fBMODBUS_EXCEP_NACK\fP = 7 }
+.RI "Represents a Modbus exception code, defined by the standart\&. ""
+.br
+.ti -1c
+.RI "enum \fBmodbusDataType\fP { \fBMODBUS_HOLDING_REGISTER\fP = 1, \fBMODBUS_INPUT_REGISTER\fP = 2, \fBMODBUS_COIL\fP = 4, \fBMODBUS_DISCRETE_INPUT\fP = 8 }
+.RI "Stores information about Modbus data types\&. ""
+.br
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "static uint16_t \fBmodbusBitsToBytes\fP (uint16_t n)"
+.br
+.RI "Converts number of bits to number of bytes required to store them\&. "
+.ti -1c
+.RI "static uint16_t \fBmodbusSwapEndian\fP (uint16_t data)"
+.br
+.RI "Swaps endianness of provided 16-bit data portion\&. "
+.ti -1c
+.RI "static uint16_t \fBmodbusMatchEndian\fP (uint16_t data)"
+.br
+.RI "Swaps endianness of provided 16-bit data portion if needed\&. "
+.ti -1c
+.RI "uint8_t \fBmodbusMaskRead\fP (const uint8_t *mask, uint16_t maskLength, uint16_t bit)"
+.br
+.RI "Reads n-th bit from an array\&. "
+.ti -1c
+.RI "uint8_t \fBmodbusMaskWrite\fP (uint8_t *mask, uint16_t maskLength, uint16_t bit, uint8_t value)"
+.br
+.RI "Writes n-th bit in an array\&. "
+.ti -1c
+.RI "uint16_t \fBmodbusCRC\fP (const uint8_t *data, uint16_t length)"
+.br
+.RI "Calculates 16-bit Modbus CRC of provided data\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Core Modbus functions\&. 
+
+This is main header file that is ought to be included as library 
+.PP
+\fBNote:\fP
+.RS 4
+This header file is suitable for C++ 
+.RE
+.PP
+
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef enum \fBmodbusFrameError\fP  \fBModbusFrameError\fP"
+
+.PP
+Provides more information on frame building/parsing error\&. These error code should serve as an additional source of information for the user\&. 
+.SH "Enumeration Type Documentation"
+.PP 
+.SS "enum \fBmodbusDataType\fP"
+
+.PP
+Stores information about Modbus data types\&. 
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIMODBUS_HOLDING_REGISTER \fP\fP
+Holding register\&. 
+.TP
+\fB\fIMODBUS_INPUT_REGISTER \fP\fP
+Input register\&. 
+.TP
+\fB\fIMODBUS_COIL \fP\fP
+Coil\&. 
+.TP
+\fB\fIMODBUS_DISCRETE_INPUT \fP\fP
+Discrete input\&. 
+.SS "enum \fBmodbusError\fP"
+
+.PP
+Represents a library runtime error code\&. 
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIMODBUS_ERROR_OK \fP\fP
+No error\&. 
+.TP
+\fB\fIMODBUS_ERROR_EXCEPTION \fP\fP
+Indicates that slave had thrown an exception\&. This exception can be thrown either by master's parsing function (indicating incoming exception frame) or by slave's building function (indicating that some problem caused the slave to \fBbuild an exception frame\fP)\&.
+.PP
+\fBNote:\fP
+.RS 4
+This error code handles the superset of problems handled by \fBMODBUS_ERROR_PARSE\fP\&.
+.RE
+.PP
+When thrown on slave side, check \fBModbusSlave::lastException\fP and \fBModbusSlave::parseError\fP for more information\&. 
+.TP
+\fB\fIMODBUS_ERROR_ALLOC \fP\fP
+Memory problem\&. Either one of memory allocation functions returned NULL or fixed-size buffer is not big enough to fit the data (see \fBDisabling dynamic memory allocation\fP)\&.Memory allocation problem 
+.TP
+\fB\fIMODBUS_ERROR_OTHER \fP\fP
+Other reason causing the function to abort (eg\&. bad function parameter) 
+.TP
+\fB\fIMODBUS_ERROR_NULLPTR \fP\fP
+A NULL pointer provided as some crucial parameter\&. 
+.TP
+\fB\fIMODBUS_ERROR_PARSE \fP\fP
+Parsing error occurred - check \fBModbusSlave::parseError\fP
+.PP
+\fBNote:\fP
+.RS 4
+This error code is returned instead of \fBMODBUS_ERROR_EXCEPTION\fP when exception should have been thrown, but wasn't (eg\&. due to broadcasted request frame)\&. These two error code should be treated similarly\&. 
+.RE
+.PP
+
+.TP
+\fB\fIMODBUS_ERROR_BUILD \fP\fP
+Frame building error occurred - check \fBModbusMaster::buildError\fP\&. 
+.TP
+\fB\fIMODBUS_OK \fP\fP
+No error\&. Alias of \fBMODBUS_ERROR_OK\fP\&. 
+.SS "enum \fBmodbusExceptionCode\fP"
+
+.PP
+Represents a Modbus exception code, defined by the standart\&. 
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIMODBUS_EXCEP_ILLEGAL_FUNCTION \fP\fP
+Illegal function code\&. 
+.TP
+\fB\fIMODBUS_EXCEP_ILLEGAL_ADDRESS \fP\fP
+Illegal data address\&. 
+.TP
+\fB\fIMODBUS_EXCEP_ILLEGAL_VALUE \fP\fP
+Illegal data value\&. 
+.TP
+\fB\fIMODBUS_EXCEP_SLAVE_FAILURE \fP\fP
+Slave could not process the request\&. 
+.TP
+\fB\fIMODBUS_EXCEP_ACK \fP\fP
+Acknowledge\&. 
+.TP
+\fB\fIMODBUS_EXCEP_NACK \fP\fP
+Negative acknowledge\&. 
+.SS "enum \fBmodbusFrameError\fP"
+
+.PP
+Provides more information on frame building/parsing error\&. These error code should serve as an additional source of information for the user\&. 
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIMODBUS_FERROR_OK \fP\fP
+Modbus frame OK\&. No error\&. 
+.TP
+\fB\fIMODBUS_FERROR_CRC \fP\fP
+Invalid CRC\&. 
+.TP
+\fB\fIMODBUS_FERROR_LENGTH \fP\fP
+Invalid frame length\&. 
+.TP
+\fB\fIMODBUS_FERROR_COUNT \fP\fP
+Invalid declared data item count\&. 
+.TP
+\fB\fIMODBUS_FERROR_VALUE \fP\fP
+Illegal data value (eg\&. when writing a single coil) 
+.TP
+\fB\fIMODBUS_FERROR_RANGE \fP\fP
+Invalid register range\&. 
+.TP
+\fB\fIMODBUS_FERROR_NOSRC \fP\fP
+There's neither callback function nor value array provided for this data type\&. 
+.TP
+\fB\fIMODBUS_FERROR_NOREAD \fP\fP
+No read access to at least one of requested regsiters\&. 
+.TP
+\fB\fIMODBUS_FERROR_NOWRITE \fP\fP
+No write access to one of requested regsiters\&. 
+.TP
+\fB\fIMODBUS_FERROR_NOFUN \fP\fP
+Function not supported\&. 
+.TP
+\fB\fIMODBUS_FERROR_BADFUN \fP\fP
+Requested a parsing function to parse a frame with wrong function code\&. 
+.TP
+\fB\fIMODBUS_FERROR_NULLFUN \fP\fP
+Function overriden by user with NULL pointer\&. 
+.TP
+\fB\fIMODBUS_FERROR_MISM_FUN \fP\fP
+Function request-response mismatch\&. 
+.TP
+\fB\fIMODBUS_FERROR_MISM_ADDR \fP\fP
+Slave address request-response mismatch\&. 
+.TP
+\fB\fIMODBUS_FERROR_MISM_INDEX \fP\fP
+Index value request-response mismatch\&. 
+.TP
+\fB\fIMODBUS_FERROR_MISM_COUNT \fP\fP
+Count value request-response mismatch\&. 
+.TP
+\fB\fIMODBUS_FERROR_MISM_VALUE \fP\fP
+Data value request-response mismatch\&. 
+.TP
+\fB\fIMODBUS_FERROR_MISM_MASK \fP\fP
+Mask value request-response mismatch\&. 
+.TP
+\fB\fIMODBUS_FERROR_BROADCAST \fP\fP
+Received response for broadcast message\&. 
+.SH "Function Documentation"
+.PP 
+.SS "static uint16_t modbusBitsToBytes (uint16_t n)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Converts number of bits to number of bytes required to store them\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIn\fP Number of bits 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of bytes of required memory 
+.RE
+.PP
+
+.SS "uint16_t modbusCRC (const uint8_t * data, uint16_t length)"
+
+.PP
+Calculates 16-bit Modbus CRC of provided data\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIdata\fP A pointer to the data to be processed 
+.br
+\fIlength\fP Number of bytes, starting at the \fCdata\fP pointer, to process 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+16-bit Modbus CRC value 
+.RE
+.PP
+
+.SS "uint8_t modbusMaskRead (const uint8_t * mask, uint16_t maskLength, uint16_t bit)"
+
+.PP
+Reads n-th bit from an array\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImask\fP A pointer to the array 
+.br
+\fImaskLength\fP The length of the array in bytes 
+.br
+\fIbit\fP Number of the bit to be read 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The bit value, or 255 if the bit lies outside the array\&. 
+.RE
+.PP
+
+.SS "uint8_t modbusMaskWrite (uint8_t * mask, uint16_t maskLength, uint16_t bit, uint8_t value)"
+
+.PP
+Writes n-th bit in an array\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImask\fP A pointer to the array 
+.br
+\fImaskLength\fP The length of the array in bytes 
+.br
+\fIbit\fP Number of the bit to write 
+.br
+\fIvalue\fP Bit value to be written 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Bit value on success, 255 if the bit lies outside the array\&. 
+.RE
+.PP
+
+.SS "static uint16_t modbusMatchEndian (uint16_t data)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Swaps endianness of provided 16-bit data portion if needed\&. 
+.PP
+\fBNote:\fP
+.RS 4
+This function works only if the system is not big-endian
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIdata\fP A 16-bit data portion\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The same data, but with bytes swapped if the system is little-endian 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBmodbusSwapEndian\fP 
+.RE
+.PP
+
+.SS "static uint16_t modbusSwapEndian (uint16_t data)\fC [inline]\fP, \fC [static]\fP"
+
+.PP
+Swaps endianness of provided 16-bit data portion\&. 
+.PP
+\fBNote:\fP
+.RS 4
+This function, unlike \fBmodbusMatchEndian\fP, works unconditionally
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIdata\fP A 16-bit data portion\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The same data, but with bytes swapped 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBmodbusMatchEndian\fP 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

@@ -1,0 +1,18 @@
+/**
+\mainpage liblightmodbus - a lightweight Modbus RTU library
+Liblightmodbus is a lightweight cross-platform Modbus RTU library.
+It provides Modbus frame parsing/building functionality only, so
+interfacing with hardware is up to user.
+
+The library has been proved to work on variety of platforms,
+including AVR, ARM and PowerPC.
+
+## Getting started
+ - \ref building
+ - \ref basic-usage
+ - \ref static-mem
+ - \ref user-functions
+ - \ref register-callback
+ - \ref advanced-configuration
+
+*/

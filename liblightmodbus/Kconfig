@@ -1,0 +1,190 @@
+menu "Liblightmodbus"
+    
+    config LIGHTMODBUS_SLAVE_BASE
+        bool "Slave module"
+        help
+            Enables the slave module
+        default y
+
+    config LIGHTMODBUS_STATIC_MEM_SLAVE_REQUEST_ENABLED
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Static request allocation"
+        help
+            Enable static memory allocation for slave requests
+
+    config LIGHTMODBUS_STATIC_MEM_SLAVE_REQUEST
+        depends on LIGHTMODBUS_SLAVE_BASE && LIGHTMODBUS_STATIC_MEM_SLAVE_REQUEST_ENABLED
+        int
+	    prompt "Statically allocated buffer size for slave requests"
+	    range 3 4294967295
+        default 32
+
+    config LIGHTMODBUS_STATIC_MEM_SLAVE_RESPONSE_ENABLED
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Static response allocation"
+        help
+            Enable static memory allocation for slave responses
+
+    config LIGHTMODBUS_STATIC_MEM_SLAVE_RESPONSE
+        depends on LIGHTMODBUS_SLAVE_BASE && LIGHTMODBUS_STATIC_MEM_SLAVE_RESPONSE_ENABLED
+        int
+	    prompt "Statically allocated buffer size for slave responses"
+	    range 3 4294967295
+	    default 32
+
+    config LIGHTMODBUS_F01S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 1"
+        default y
+
+    config LIGHTMODBUS_F02S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 2"
+        default y
+
+    config LIGHTMODBUS_F03S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 3"
+        default y
+
+    config LIGHTMODBUS_F04S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 4"
+        default y
+
+    config LIGHTMODBUS_F05S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 5"
+        default y
+
+    config LIGHTMODBUS_F06S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 6"
+        default y
+
+    config LIGHTMODBUS_F15S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 15"
+
+    config LIGHTMODBUS_F16S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 16"
+
+    config LIGHTMODBUS_F22S
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave function code 22"
+
+    config SLAVE_USER_FUNCTIONS
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave user functions"
+        help
+            Support for user-defined Modbus function behavior on the slave side
+
+    config REGISTER_CALLBACK
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave register callback function"
+        help
+            Support for user-defined callbacks for register access
+
+    config COIL_CALLBACK
+        depends on LIGHTMODBUS_SLAVE_BASE
+        bool "Slave coil callback function"
+        help
+            Support for user-defined callbacks for coil access
+    
+    config LIGHTMODBUS_MASTER_BASE
+        bool "Master module"
+        help
+            This enables the master module
+        default y
+
+    config LIGHTMODBUS_STATIC_MEM_MASTER_REQUEST_ENABLED
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Static request allocation"
+        help
+            Enable static memory allocation for master requests
+
+    config LIGHTMODBUS_STATIC_MEM_MASTER_REQUEST
+        depends on LIGHTMODBUS_MASTER_BASE && LIGHTMODBUS_STATIC_MEM_MASTER_REQUEST_ENABLED
+        int
+	    prompt "Statically allocated buffer size for master requests"
+	    range 3 4294967295
+        default 32
+
+    config LIGHTMODBUS_STATIC_MEM_MASTER_RESPONSE_ENABLED
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Static response allocation"
+        help
+            Enable static memory allocation for master responses
+
+    config LIGHTMODBUS_STATIC_MEM_MASTER_RESPONSE
+        depends on LIGHTMODBUS_MASTER_BASE && LIGHTMODBUS_STATIC_MEM_MASTER_RESPONSE_ENABLED
+        int
+	    prompt "Statically allocated buffer size for master responses"
+	    range 3 4294967295
+	    default 32
+
+    config LIGHTMODBUS_F01M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 1"
+        default y
+
+    config LIGHTMODBUS_F02M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 2"
+        default y
+
+    config LIGHTMODBUS_F03M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 3"
+        default y
+
+    config LIGHTMODBUS_F04M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 4"
+        default y
+
+    config LIGHTMODBUS_F05M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 5"
+        default y
+
+    config LIGHTMODBUS_F06M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 6"
+        default y
+
+    config LIGHTMODBUS_F15M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 15"
+
+    config LIGHTMODBUS_F16M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 16"
+
+    config LIGHTMODBUS_F22M
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master function code 22"
+
+    config LIGHTMODBUS_MASTER_USER_FUNCTIONS
+        depends on LIGHTMODBUS_MASTER_BASE
+        bool "Master user functions"
+        help
+            Support for user-defined Modbus function behavior on the master side
+
+    config LIGHTMODBUS_NO_MASTER_DATA_BUFFER
+        depends on LIGHTMODBUS_MASTER_BASE && LIGHTMODBUS_EXPERIMENTAL
+        bool "No master data buffer"
+        help
+            No storage for incoming data will be allocated. Instead the ModbusMaster::data's coil and regs pointers point to where the regsiter/coil data starts in the ModbusMaster::response frame
+
+    config LIGHTMODBUS_MASTER_INVASIVE_PARSING
+        depends on LIGHTMODBUS_MASTER_BASE && LIGHTMODBUS_NO_MASTER_DATA_BUFFER
+        bool "Master invasive parsing"
+        help
+            Allow master to modify received frame
+
+    config LIGHTMODBUS_EXPERIMENTAL
+        bool "Enable experimental features"
+
+    endmenu

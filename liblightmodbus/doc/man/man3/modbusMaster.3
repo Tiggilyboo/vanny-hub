@@ -1,0 +1,260 @@
+.TH "modbusMaster" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+modbusMaster \- Represents Modbus master device's status and configuration\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.PP
+\fC#include <master\&.h>\fP
+.SS "Data Fields"
+
+.in +1c
+.ti -1c
+.RI "uint8_t \fBpredictedResponseLength\fP"
+.br
+.RI "Predicted number of response bytes to be received from slave upon succesful request\&. "
+.ti -1c
+.RI "struct {"
+.br
+.ti -1c
+.RI "   uint8_t \fBframe\fP [LIGHTMODBUS_STATIC_MEM_MASTER_REQUEST]"
+.br
+.RI "Statically allocated memory for the request frame\&. "
+.ti -1c
+.RI "   uint8_t * \fBframe\fP"
+.br
+.RI "A pointer to dynamically allocated memory for the request frame\&. "
+.ti -1c
+.RI "   uint8_t \fBlength\fP"
+.br
+.RI "Length of the request frame in bytes\&. "
+.ti -1c
+.RI "} \fBrequest\fP"
+.br
+.RI "Struct containing master's request for the slave\&. "
+.ti -1c
+.RI "struct {"
+.br
+.ti -1c
+.RI "   uint8_t \fBframe\fP [LIGHTMODBUS_STATIC_MEM_MASTER_RESPONSE]"
+.br
+.RI "Statically allocated memory for the response frame\&. "
+.ti -1c
+.RI "   const uint8_t * \fBframe\fP"
+.br
+.RI "A pointer to dynamically allocated memory for the response frame\&. "
+.ti -1c
+.RI "   uint8_t \fBlength\fP"
+.br
+.RI "Length of the response frame in bytes\&. "
+.ti -1c
+.RI "} \fBresponse\fP"
+.br
+.RI "Struct containing slave's response to the master's request\&. "
+.ti -1c
+.RI "struct {"
+.br
+.ti -1c
+.RI "   uint8_t \fBaddress\fP"
+.br
+.RI "Addres of slave that sent in the data\&. "
+.ti -1c
+.RI "   uint16_t \fBindex\fP"
+.br
+.RI "Modbus address of the first register/coil\&. "
+.ti -1c
+.RI "   uint16_t \fBcount\fP"
+.br
+.RI "Number of data units (coils, registers, etc\&.) "
+.ti -1c
+.RI "   uint8_t \fBlength\fP"
+.br
+.RI "Length of data in bytes\&. "
+.ti -1c
+.RI "   \fBModbusDataType\fP \fBtype\fP"
+.br
+.RI "Type of data\&. "
+.ti -1c
+.RI "   uint8_t \fBfunction\fP"
+.br
+.RI "Function that accessed the data\&. "
+.ti -1c
+.RI "   union {"
+.br
+.ti -1c
+.RI "      uint8_t \fBcoils\fP [LIGHTMODBUS_STATIC_MEM_MASTER_DATA]"
+.br
+.RI "Statically allocated array for received coils data\&. "
+.ti -1c
+.RI "      uint16_t \fBregs\fP [LIGHTMODBUS_STATIC_MEM_MASTER_DATA >> 1]"
+.br
+.RI "Statically allocated array for received registers data\&. "
+.ti -1c
+.RI "   } "
+.br
+.ti -1c
+.RI "   uint8_t * \fBcoils\fP"
+.br
+.RI "A pointer to dynamically allocated memory for the received coils data\&. "
+.ti -1c
+.RI "   uint16_t * \fBregs\fP"
+.br
+.RI "A pointer to dynamically allocated memory for the received registers data\&. "
+.ti -1c
+.RI "} \fBdata\fP"
+.br
+.RI "Contains data received from the slave\&. "
+.ti -1c
+.RI "struct {"
+.br
+.ti -1c
+.RI "   uint8_t \fBaddress\fP"
+.br
+.RI "Slave device address\&. "
+.ti -1c
+.RI "   uint8_t \fBfunction\fP"
+.br
+.RI "Function that has thrown the exception\&. "
+.ti -1c
+.RI "   \fBModbusExceptionCode\fP \fBcode\fP"
+.br
+.RI "Exception code\&. "
+.ti -1c
+.RI "} \fBexception\fP"
+.br
+.RI "Contains exception data received from the slave\&. "
+.ti -1c
+.RI "\fBModbusFrameError\fP \fBparseError\fP"
+.br
+.RI "More precise information according encountered frame parsing error\&. "
+.ti -1c
+.RI "\fBModbusFrameError\fP \fBbuildError\fP"
+.br
+.RI "More precise information according encountered frame building error\&. "
+.ti -1c
+.RI "\fBModbusMasterUserFunction\fP * \fBuserFunctions\fP"
+.br
+.RI "A pointer to an array of user-defined Modbus functions\&. "
+.ti -1c
+.RI "uint16_t \fBuserFunctionCount\fP"
+.br
+.RI "Number of the user functions in the array\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Represents Modbus master device's status and configuration\&. 
+.SH "Field Documentation"
+.PP 
+.SS "uint8_t modbusMaster::address"
+
+.PP
+Addres of slave that sent in the data\&. Slave device address\&. 
+.SS "uint8_t modbusMaster::coils[LIGHTMODBUS_STATIC_MEM_MASTER_DATA]"
+
+.PP
+Statically allocated array for received coils data\&. Each bit of this array corresponds to one coil value\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBmodbusMaskRead()\fP 
+.RE
+.PP
+
+.SS "uint8_t* modbusMaster::coils"
+
+.PP
+A pointer to dynamically allocated memory for the received coils data\&. Each bit of this array corresponds to one coil value\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBmodbusMaskRead()\fP 
+.RE
+.PP
+
+.SS "struct { \&.\&.\&. }   modbusMaster::data"
+
+.PP
+Contains data received from the slave\&. The space for data inside this structure can either be dynamically or statically allocated (see \fBDisabling dynamic memory allocation\fP)\&. 
+.SS "struct { \&.\&.\&. }   modbusMaster::exception"
+
+.PP
+Contains exception data received from the slave\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Data in this structure is only valid if the processed response frame was an exception frame\&. 
+.RE
+.PP
+
+.SS "uint8_t modbusMaster::frame[LIGHTMODBUS_STATIC_MEM_MASTER_RESPONSE]"
+
+.PP
+Statically allocated memory for the request frame\&. Statically allocated memory for the response frame\&. 
+.SS "uint8_t modbusMaster::function"
+
+.PP
+Function that accessed the data\&. Function that has thrown the exception\&. 
+.SS "uint8_t modbusMaster::length"
+
+.PP
+Length of the request frame in bytes\&. Length of data in bytes\&.
+.PP
+Length of the response frame in bytes\&. 
+.SS "uint16_t modbusMaster::regs[LIGHTMODBUS_STATIC_MEM_MASTER_DATA >> 1]"
+
+.PP
+Statically allocated array for received registers data\&. Data in this array always has currently used platform's native endianness\&. 
+.SS "uint16_t* modbusMaster::regs"
+
+.PP
+A pointer to dynamically allocated memory for the received registers data\&. Data in this array always has currently used platform's native endianness\&. 
+.SS "struct { \&.\&.\&. }   modbusMaster::request"
+
+.PP
+Struct containing master's request for the slave\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Declaration of the \fCframe\fP member depends on the library configuration\&. It can be either a statically allocated array or a pointer to dynamically allocated memory\&. The behavior is dependant on definition of the \fCLIGHTMODBUS_STATIC_MEM_MASTER_REQUEST\fP macro
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBDisabling dynamic memory allocation\fP 
+.RE
+.PP
+
+.SS "struct { \&.\&.\&. }   modbusMaster::response"
+
+.PP
+Struct containing slave's response to the master's request\&. 
+.PP
+\fBNote:\fP
+.RS 4
+Declaration of the \fCframe\fP member depends on the library configuration\&. It can be either a statically allocated array or a pointer to dynamically allocated memory\&. The behavior is dependant on definition of the \fCLIGHTMODBUS_STATIC_MEM_MASTER_RESPONSE\fP macro
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBDisabling dynamic memory allocation\fP 
+.RE
+.PP
+
+.SS "\fBModbusMasterUserFunction\fP* modbusMaster::userFunctions"
+
+.PP
+A pointer to an array of user-defined Modbus functions\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+user-functions 
+.RE
+.PP
+
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

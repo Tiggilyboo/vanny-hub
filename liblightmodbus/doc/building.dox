@@ -1,0 +1,85 @@
+/**
+\page building Building liblightmodbus
+
+\note In order to build the library CMake 3.3 or newer is required.
+Versions up to 1.3 used script-based build system, no longer maintained
+as of version 1.4. For more information see \ref building-old.
+
+The library's build configuration process is pretty complex,
+as the library consists of many modules that can be included
+in the build or omitted. If you want to go with default configuration
+first, take a look at the section below.
+
+## Default build configuration
+ 1. `mkdir build` - Create a new directory for build environment
+ 2. `cmake ..` - Run CMake with no additional flags
+ 3. `make all` - Build the library
+
+## Custom build
+The only difference between default and customized builds are the arguments
+passed to CMake. 
+
+The `MODULES` CMake variable determines what library modules and functionalities are going to be included during
+the build process. It should take value of desired module names list, separated with semicolons (and no spaces!).
+See below for list of available modules along with short descriptions:
+ - `SLAVE_BASE` - slave basic feature set (required by all other slave-related modules)
+ - `F01S` - slave support for Modbus function 01
+ - `F02S` - slave support for Modbus function 02
+ - `F03S` - slave support for Modbus function 03
+ - `F04S` - slave support for Modbus function 04
+ - `F05S` - slave support for Modbus function 05
+ - `F06S` - slave support for Modbus function 06
+ - `F15S` - slave support for Modbus function 15
+ - `F16S` - slave support for Modbus function 16
+ - `F22S` - slave support for Modbus function 22
+ - `MASTER_BASE` - master basic feature set (required by all other master-related modules)
+ - `F01M` - master support for Modbus function 01
+ - `F02M` - master support for Modbus function 02
+ - `F03M` - master support for Modbus function 03
+ - `F04M` - master support for Modbus function 04• F05M - master support for Modbus function 05
+ - `F06M` - master support for Modbus function 06
+ - `F15M` - master support for Modbus function 15
+ - `F16M` - master support for Modbus function 16
+ - `F22M` - master support for Modbus function 22
+ - `SLAVE_USER_FUNCTIONS` - support for user-defined Modbus functions on slave side (see \ref user-functions)
+ - `MASTER_USER_FUNCTIONS` - support for user-defined Modbus functions on master side (see \ref user-functions)
+ - `REGISTER_CALLBACK` - slave register callback function (see \ref register-callback)
+ - `COIL_CALLBACK` - slave coil callback function (see \ref register-callback)
+ - `NO_MASTER_DATA_BUFFER` - disable exclusive master’s processed data buffer (see \ref advanced-configuration)
+ - `MASTER_INVASIVE_PARSING` - allow master to modify received frame (use with `NO_MASTER_DATA_BUFFER`)
+ - `EXPERIMENTAL` - enable experimental features
+
+\note If you don't specify any modules during configuration, these default modules are going
+to be included: 
+`SLAVE_BASE;F01S;F02S;F03S;F04S;F05S;F06S;F15S;F16S;F22S;SLAVE_USER_FUNCTIONS;MASTER_BASE;F01M;F02M;F03M;F04M;F05M;
+F06M;F15M;F16M;F22M;MASTER_USER_FUNCTIONS`.
+
+### Disabling dynamic memory allocation
+Liblightmodbus can work without dynamic memory allocation. See \ref static-mem for more information.
+
+### Setting endianness
+Modbus is strictly big-endian protocol. That means you have to specify target system endianness when building.
+By default, CMake will check your system endianness and apply that setting, but in order to override it, set
+`ENDIANNESS` CMake variable to either "big" or "little".
+
+### Building for AVR
+Building the library for AVR microcontrollers is pretty easy thanks to the `AVR` CMake variable. 
+If you want to build for AVR, just add `-DAVR=<part>` argument to the CMake invocation, where `<part>` 
+is the target microcontroller type (for instance `atmega328`).
+
+### Debug and release builds
+In order to specify build type - debug or release, set `CMAKE_BUILD_TYPE` to either `Debug` or `Release`.
+
+### Changing compiler and linker
+To change used compiler and linker, adjust these CMake variables: `CMAKE_C_COMPILER`, `CMAKE_LINKER`.
+
+### Coverage testing
+Even though it's probably not what you want to do, you can enable coverage test build by setting `COVERAGE_TEST`
+variable to 1.
+
+### Library configuration file
+During the build process, a special library configuration header file - `include/lightmodbus/libconf.h` is created.
+It contains macros describing current library configuration. Names of these macros correspond to CMake configuration variable names.
+
+If you know, what you are doing you can edit this file manually, however keep in mind that the library will need rebuilding after making any changes.
+*/

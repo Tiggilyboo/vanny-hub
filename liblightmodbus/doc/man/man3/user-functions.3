@@ -1,0 +1,134 @@
+.TH "user-functions" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+user-functionsUser-defined Modbus functions 
+ \- 
+.PP
+\fBNote:\fP
+.RS 4
+This feature requires \fCSLAVE_USER_FUNCTIONS\fP or \fCMASTER_USER_FUNCTIONS\fP module (see \fBBuilding liblightmodbus\fP)\&.
+.RE
+.PP
+Liblightmodbus allows user to define his own request/response parsing functions\&.
+.PP
+.SS "Slave's user-defined functions"
+.PP
+In order to provide library hint which functions shall be treated differently, user should set up an array of \fBModbusSlaveUserFunction\fP structures and provide pointer to it in \fBModbusSlave::userFunctions\fP\&. The number of user-defined functions in the array should be written to \fBModbusSlave::userFunctionCount\fP\&. See the example below:
+.PP
+.PP
+.nf
+static ModbusSlaveUserFunction userf[2] =
+{
+    {77, foo},
+    {16, NULL},
+};
+slave\&.userFunctions = userf;
+slave\&.userFunctionCount = 2;
+.fi
+.PP
+.PP
+This code causes the library to attempt to parse request 77 with some \fCfoo()\fP function and ignore request 16\&.
+.PP
+\fBWarning:\fP
+.RS 4
+User-defined functions override built-in functions
+.RE
+.PP
+The user-defined functions must have following form: 
+.PP
+.nf
+ModbusError userfun( ModbusSlave *status, ModbusParser *parser )
+
+.fi
+.PP
+.PP
+The \fCfoo\fP function could be defined for example as: 
+.PP
+.nf
+ModbusError foo( ModbusSlave *status, ModbusParser *parser )
+{
+    //Throw exception if slave address is divisible by 2
+    if ( parser->base\&.address % 2 == 0 ) 
+        return modbusBuildException( status, parser->base\&.function, MODBUS_EXCEPTION_SLAVE_FAILURE );
+
+    //Return empty frame in response
+    //Assumes static slave response buffer is disabled
+    status->response\&.frame = calloc( 16, 1 );
+    status->response\&.length = 16;
+
+    //Relies on fact that CRC of zeros is 0
+
+    //Successful exit   
+    return MODBUS_OK;
+}
+
+.fi
+.PP
+.PP
+This function causes slaves with addresses divisible by 2 to return an exception upon receiving a frame with function code 77\&. The odd-numbered slaves respond with 16 byte frame filled with zeros\&. This is just a silly example, so please see the real guidelines for used-defined functions below\&.
+.PP
+.SS "User-defined function guidelines"
+.PP
+.IP "\(bu" 2
+When building an exception frame with \fBmodbusBuildException\fP, make sure you return the value it gave you when you return from the parsing function\&.
+.IP "\(bu" 2
+Be aware of big-endian data - \fBmodbusMatchEndian\fP is your friend\&.
+.IP "\(bu" 2
+Make sure you do not respond when the request frame is broadcasted\&.
+.IP "\(bu" 2
+Always know if you built library with dynamic memory allocation enabled\&. This affects the way you write data to the response buffer\&.
+.IP "\(bu" 2
+Liblightmodbus guarantees that you can access data in \fBModbusParser\fP \fCbase\fP structure - that means you know the function code and slave address\&.
+.IP "\(bu" 2
+If dynamic response buffer allocation is enabled, the \fBModbusSlave::response\fP frame buffer will be automatically freed by next \fBmodbusParseRequest\fP
+.PP
+.PP
+If that's not enough information for you, take a look at some real request parsing functions, for example in \fCsrc/slave/sregs\&.c\fP\&.
+.PP
+.SS "Master side user-functions"
+.PP
+Setting up user-defined functions on master side is very similar to setting them up on the slave side\&. By analogy \fBModbusMaster::userFunctions\fP and \fBModbusMaster::userFunctionCount\fP need to be set up\&.
+.PP
+.PP
+.nf
+static ModbusMasterUserFunction userf[2] =
+{
+    {77, bar},
+    {16, NULL},
+};
+master\&.userFunctions = userf;
+master\&.userFunctionCount = 2;
+.fi
+.PP
+.PP
+\fBWarning:\fP
+.RS 4
+User-defined functions override built-in functions
+.RE
+.PP
+The parsing function, however, needs to look a bit differently: 
+.PP
+.nf
+ModbusError userf( ModbusMaster *status, ModbusParser *parser, ModbusParser *requestParser )
+
+.fi
+.PP
+.PP
+The difference is the \fCrequestParser\fP parameter - it gives you access to the request frame to which response you are parsing\&.
+.PP
+.SS "User-defined function guidelines"
+.PP
+.IP "\(bu" 2
+Be aware of big-endian data - \fBmodbusMatchEndian\fP is your friend\&.
+.IP "\(bu" 2
+Always know if you built library with dynamic memory allocation enabled\&. This affects the way you write data to the response buffer\&.
+.IP "\(bu" 2
+Liblightmodbus guarantees that you can access data in \fBModbusParser\fP \fCbase\fP structure - that means you know the function code and slave address\&.
+.IP "\(bu" 2
+If dynamic response buffer allocation is enabled, the \fBModbusMaster::data\fP buffers will be automatically freed by next \fBmodbusParseResponse\fP
+.IP "\(bu" 2
+If you encounter a parsing error, return \fBMODBUS_ERROR_PARSE\fP
+.PP
+.PP
+Please take a look at \fCsrc/master/mpregs\&.c\fP for example parsing functions\&. 

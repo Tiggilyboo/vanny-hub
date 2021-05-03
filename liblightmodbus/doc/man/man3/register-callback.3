@@ -1,0 +1,71 @@
+.TH "register-callback" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+register-callbackUser-defined Modbus register callback function 
+ \- 
+.PP
+\fBNote:\fP
+.RS 4
+This feature requires \fCREGISTER_CALLBACK\fP or \fCCOIL_CALLBACK\fP module (see \fBBuilding liblightmodbus\fP)\&.
+.PP
+Register callback function is still considered an experimental feature\&. In order to include this functionality during build process, please include \fCEXPERIMENTAL\fP module (see \fBBuilding liblightmodbus\fP)\&.
+.RE
+.PP
+Liblightmodbus allows user to define his own register/coil callback function used for fetching register values instead of the \fBModbusSlave::registers\fP \fBModbusSlave::coils\fP arrays\&. This feature can be helpful when implementing non-continuous register ranges that would otherwise mean huge waste of memory\&.
+.PP
+It is important to mention, that once callback function is enabled for registers, it has to handle input registers as well\&. The same goes for coils - the coil callback function has to handle discrete inputs as well\&. The register-array and register-callback system cannot coexist\&.
+.PP
+The pointer to the callback function (\fBModbusRegisterCallbackFunction\fP) should be stored in \fBModbusSlave::registerCallback\fP before \fBmodbusSlaveInit()\fP is called\&. There's only one callback function for all data types and it should have following form:
+.PP
+.PP
+.nf
+uint16_t callback( ModbusRegisterQuery query, ModbusDataType datatype, uint16_t index, uint16_t value, void *ctx )
+.fi
+.PP
+.PP
+The register/coil callback is an user-defined function determining if certain register or coil can be accessed and performing virtual register reads and writes\&. Below is an example of register callback function simply mapping register accesses to an array: 
+.PP
+.nf
+uint16_t regs[16], iregs[16]; //Holding registers and input registers arrays
+uint8_t writeacc[16]; //Some write locks
+
+uint16_t rcallback( ModbusRegisterQuery query, ModbusDataType datatype, uint16_t index, uint16_t value, void *ctx )
+{
+    //All can be read
+    if ( query == MODBUS_REGQ_R_CHECK ) return 1;
+
+    //writeacc determines if holding register can be written
+    if ( query == MODBUS_REGQ_W_CHECK ) return writeacc[index];
+
+    //Read
+    if ( query == MODBUS_REGQ_R )
+    {
+        if ( datatype == MODBUS_HOLDING_REGISTER ) return regs[index];
+        if ( datatype == MODBUS_INPUT_REGISTER ) return iregs[index];
+    }
+
+    //Write
+    if ( query == MODBUS_REGQ_W && datatype == MODBUS_HOLDING_REGISTER )
+        iregs[index] = value;
+
+    return 0;
+}
+
+.fi
+.PP
+.PP
+The first function argument determines query type\&. Two types of register queries are distinguished - read/write requests (\fBMODBUS_REGQ_R\fP, \fBMODBUS_REGQ_W\fP) and read/write access queries (\fBMODBUS_REGQ_R_CHECK\fP, \fBMODBUS_REGQ_W_CHECK\fP)\&.
+.PP
+Upon reception of access query, the function shall return 1 if certain kind of access is granted to register of type determined by second argument of type \fBModbusDataType\fP and index determined by third argument\&. Otherwise 0 shall be returned\&.
+.PP
+If the callback function denies access to certain register, this results in slave device returning \fBMODBUS_EXCEP_SLAVE_FAILURE\fP exception frame\&. When callback function receives a read request it shall return 16-bit unsigned integer value of the register\&. If it receives a write request, the register should be written with value from the fourth parameter\&.
+.PP
+Liblightmodbus guarantees that no write requests will be ever made for discrete input and input register types\&. Neither will it request to read/write some register after the callback function denied certain kind of access for it\&. Access rights for registers will always be checked before reading/writing data\&. It's also guaranteed that the index argument will always be less than count of certain type registers set in \fBModbusSlave\fP\&.
+.PP
+\fBWarning:\fP
+.RS 4
+Even though it's clearly stated what kind of queries will never be made by liblightmodbus internal Modbus functions, beware of your own Modbus functions\&. 
+.RE
+.PP
+

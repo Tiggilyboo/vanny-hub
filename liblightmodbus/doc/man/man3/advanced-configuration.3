@@ -1,0 +1,28 @@
+.TH "advanced-configuration" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+advanced-configurationAdvanced configuration 
+ \- 
+.SS "Disabling master's incoming data buffer"
+.PP
+\fBWarning:\fP
+.RS 4
+This feature is considered experimental and requires \fCEXPERIMENTAL\fP module to be included
+.RE
+.PP
+If the \fCNO_MASTER_DATA_BUFFER\fP module is included, no storage for incoming data will be allocated\&. Instead the \fBModbusMaster::data\fP's \fCcoil\fP and \fCregs\fP pointers point to where the regsiter/coil data starts in the \fBModbusMaster::response\fP frame\&.
+.PP
+\fBNote:\fP
+.RS 4
+The data in Modbus frames is in big-endian format\&. Please remember about that when you're processing it\&.
+.RE
+.PP
+.SS "Invasive parsing"
+.PP
+\fBNote:\fP
+.RS 4
+This feature shall be used with \fCNO_MASTER_DATA_BUFFER\fP module included
+.RE
+.PP
+If the \fCMASTER_INVASIVE_PARSING\fP module is included, the master's parsing functions will be allowed to alter the response frame contents\&. It enables the parsing function to convert the incoming data to currently used system's endianness, so it can be safely accessed directly afterwards\&. 

@@ -1,0 +1,150 @@
+/**
+\page basic-usage Basic usage
+
+If you want to get started with liblightmodbus, you should probably start here.
+This page shows basic usage of the library and assumes you have a working copy of it.
+
+If you don't, see \ref building or download a development package from the PPA.
+
+The library consists of two independent parts. One contains all functions related with
+slave's tasks and the other functions related with master's tasks.
+
+## Slave side
+The most important structure type on the slave side is \ref ModbusSlave which represents
+slave device's status and configuration. A pointer to such structure is passed to all
+the slave-related functions.
+
+### Initialization
+In order to get started, you need to allocate some space for your slave's registers and coils.
+Two arrays will do just fine:
+~~~{.c}
+uint16_t regs[16]; //16 holding registers
+uint8_t coils[4];  //32 coils
+~~~
+
+Next, the slave structure has to be initialized:
+~~~{c}
+ModbusSlave slave;
+
+//Tell the library where registers and coils are
+slave.registers = regs;
+slave.registerCount = 16;
+slave.coils = coils;
+slave.coilCount = 32;
+
+//We don't have any input registers or discrete inputs
+slave.inputRegisterCount = 0;
+slave.discreteInputCount = 0;
+
+//Setup slave's address
+slave.address = 54;
+
+assert( modbusSlaveInit( &slave ) == MODBUS_OK );
+~~~
+
+Note the \ref modbusSlaveInit call. This is the function that actually initializes the structure for use.
+It shall be called before any other library function is used on the structure
+
+### Processing requests
+Processing incoming requests is done using \ref modbusParseRequest function. However, before calling it,
+the request needs to be loaded to \ref ModbusSlave::request. Please see the example below.
+~~~{c}
+ModbusError err;
+uint8_t length;
+uint8_t frame[256];
+
+//Get the incoming frame somehow
+read_from_serial_somehow( &frame, &length );
+
+//Pass the frame to the library
+slave.request.frame = frame;
+slave.request.length = length; 
+err = modbusParseRequest( &slave );
+
+//It is acceptable for slave to throw exceptions
+assert( err == MODBUS_OK || err == MODBUS_ERROR_EXCEPTION );
+~~~
+
+This code causes the library to process the incoming request. Afterwards, the response from 
+\ref ModbusSlave::response needs to be send back to master device.
+~~~{c}
+int i;
+for ( i = 0; i < slave.response.length; i++ )
+    serial_send_somehow( slave.response.frame[i] );
+~~~
+
+### Cleaning up
+After you're done using the library, don't forget to clean up. You should call \ref modbusSlaveEnd
+on your slave structure.
+
+
+
+## Master side
+The most important structure type on the master side is \ref ModbusMaster which represents
+master device's status and configuration (like \ref ModbusSlave on the slave side). A 
+pointer to such structure is passed to all the master-related functions.
+
+### Initialization
+Unlike on save side, there's nothing more to be done apart from initializing the master
+structure with \ref modbusMasterInit.
+~~~{c}
+ModbusMaster master;
+assert( modbusMasterInit( &master ) == MODBUS_OK );
+~~~
+
+### Forming requests
+Request frames can be generated using `modbusBuildRequest**` functions. After each successful
+call, the new request frame will be written to \ref ModbusMaster::request.
+~~~{c}
+//Write 678 to 7th register of slave 54
+assert( modbusBuildRequest( &master, 54, 7, 678 ) == MODBUS_OK );
+
+//Send
+for ( i = 0; i < master.request.length; i++ )
+    serial_send_somehow( master.request.frame[i] );
+~~~
+
+### Parsing responses
+The \ref modbusParseResponse function does the response parsing job on the master side.
+It needs to have the response frame provided in \ref ModbusMaster::response.
+After successful parsing, the incoming data will be available in \ref ModbusMaster::data structure.
+If the slave had returned an exception, the exception details will be available in the 
+\ref ModbusMaster::exception structure.
+~~~{c}
+ModbusError err;
+uint8_t length;
+uint8_t frame[256];
+
+//Get the incoming frame somehow
+read_from_serial_somehow( &frame, &length );
+
+//Pass the frame to the library
+master.response.frame = frame;
+master.response.length = length;
+err = modbusParseResponse( &master );
+
+if ( err == MODBUS_OK )
+{
+    //Use the data
+    //see ModbusMaster::data
+}
+else if ( err == MODBUS_ERROR_EXCEPTION )
+{
+    //Use the exception information
+    printf( "slave threw an exception - %d\n", master.exception.code );
+}
+else
+{
+    //Handle the other errors
+    //see ModbusError
+}
+~~~
+
+### Cleaning up
+After you're done using the library, don't forget to clean up. You should call \ref modbusMasterEnd
+on your master structure.
+
+## Examples
+Please see the contents of the `examples` directory.
+
+*/

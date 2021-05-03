@@ -1,0 +1,122 @@
+.TH "include/lightmodbus/master.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/master.h \- General Modbus master functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Data Structures"
+
+.in +1c
+.ti -1c
+.RI "struct \fBmodbusMasterUserFunction\fP"
+.br
+.RI "Associates user-defined response parser function with the function ID\&. "
+.ti -1c
+.RI "struct \fBmodbusMaster\fP"
+.br
+.RI "Represents Modbus master device's status and configuration\&. "
+.in -1c
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef struct \fBmodbusMasterUserFunction\fP \fBModbusMasterUserFunction\fP"
+.br
+.RI "Associates user-defined response parser function with the function ID\&. "
+.ti -1c
+.RI "typedef struct \fBmodbusMaster\fP \fBModbusMaster\fP"
+.br
+.RI "Represents Modbus master device's status and configuration\&. "
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseResponse\fP (\fBModbusMaster\fP *status)"
+.br
+.RI "Interprets the incoming response frame located in the master structure\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusMasterInit\fP (\fBModbusMaster\fP *status)"
+.br
+.RI "Performs initialization of the \fBModbusMaster\fP structure\&. "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusMasterEnd\fP (\fBModbusMaster\fP *status)"
+.br
+.RI "Frees memory used by the \fBModbusMaster\fP structure, previously initialized with \fBmodbusMasterInit\fP\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+General Modbus master functions\&. 
+
+
+.PP
+\fBNote:\fP
+.RS 4
+This header file is suitable for C++ 
+.RE
+.PP
+
+.SH "Function Documentation"
+.PP 
+.SS "\fBModbusError\fP modbusMasterEnd (\fBModbusMaster\fP * status)"
+
+.PP
+Frees memory used by the \fBModbusMaster\fP structure, previously initialized with \fBmodbusMasterInit\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to be freed 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusMasterInit (\fBModbusMaster\fP * status)"
+
+.PP
+Performs initialization of the \fBModbusMaster\fP structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to be initialized 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseResponse (\fBModbusMaster\fP * status)"
+
+.PP
+Interprets the incoming response frame located in the master structure\&. Calling this function results in processing the frame located in \fBModbusMaster::response\fP\&. The received data will be located in \fBModbusMaster::data\fP or \fBModbusMaster::exception\fP if slave has responded with an exception frame\&.
+.PP
+Firstly, this function resets and freed data previously stored in \fBModbusMaster::exception\fP and \fBModbusMaster::data\fP\&.
+.PP
+Afterwards, the frame is validated using \fBmodbusCRC()\fP function\&. If it's not consistent, it's discarded at this point and \fBMODBUS_ERROR_PARSE\fP is returned\&.
+.PP
+Then, array of user-defined functions is searched\&. It is important to mention that, user functions override built-in functions\&. That means, one can disable specific function by simply inserting NULL pointer into the array,
+.PP
+If matching function is found among user-defined or built-in functions, the \fBmodbusParseResponse()\fP returns the exact error code the parsing function had returned\&. Otherwise, \fBMODBUS_ERROR_PARSE\fP is returned\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to work on 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.

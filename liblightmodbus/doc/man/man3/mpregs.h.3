@@ -1,0 +1,141 @@
+.TH "include/lightmodbus/master/mpregs.h" 3 "Sun Sep 2 2018" "Version 2.0" "liblightmodbus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/lightmodbus/master/mpregs.h \- Master's register-related parsing functions\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseResponse0304\fP (\fBModbusMaster\fP *status, \fBModbusParser\fP *parser, \fBModbusParser\fP *requestParser)"
+.br
+.RI "Processes responses for requests 03 (read multiple holding registers) and 04 (read multiple input registers) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseResponse06\fP (\fBModbusMaster\fP *status, \fBModbusParser\fP *parser, \fBModbusParser\fP *requestParser)"
+.br
+.RI "Processes responses for request 06 (write a single holding register) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseResponse16\fP (\fBModbusMaster\fP *status, \fBModbusParser\fP *parser, \fBModbusParser\fP *requestParser)"
+.br
+.RI "Processes responses for request 15 (write multiple holding registers) "
+.ti -1c
+.RI "\fBModbusError\fP \fBmodbusParseResponse22\fP (\fBModbusMaster\fP *status, \fBModbusParser\fP *parser, \fBModbusParser\fP *requestParser)"
+.br
+.RI "Processes responses for request 22 (mask-write holding register) "
+.in -1c
+.SH "Detailed Description"
+.PP 
+Master's register-related parsing functions\&. 
+
+
+.SH "Function Documentation"
+.PP 
+.SS "\fBModbusError\fP modbusParseResponse0304 (\fBModbusMaster\fP * status, \fBModbusParser\fP * parser, \fBModbusParser\fP * requestParser)"
+
+.PP
+Processes responses for requests 03 (read multiple holding registers) and 04 (read multiple input registers) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF03M\fP or \fCF04M\fP module (see \fBBuilding liblightmodbus\fP) 
+.PP
+\fCmodbusParseResponse03\fP and \fCmodbusParseResponse04\fP macros are aliases of this function 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to work with 
+.br
+\fIparser\fP A parser structure containing response data 
+.br
+\fIrequestParser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseResponse06 (\fBModbusMaster\fP * status, \fBModbusParser\fP * parser, \fBModbusParser\fP * requestParser)"
+
+.PP
+Processes responses for request 06 (write a single holding register) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF06M\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to work with 
+.br
+\fIparser\fP A parser structure containing response data 
+.br
+\fIrequestParser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseResponse16 (\fBModbusMaster\fP * status, \fBModbusParser\fP * parser, \fBModbusParser\fP * requestParser)"
+
+.PP
+Processes responses for request 15 (write multiple holding registers) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF16M\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to work with 
+.br
+\fIparser\fP A parser structure containing response data 
+.br
+\fIrequestParser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SS "\fBModbusError\fP modbusParseResponse22 (\fBModbusMaster\fP * status, \fBModbusParser\fP * parser, \fBModbusParser\fP * requestParser)"
+
+.PP
+Processes responses for request 22 (mask-write holding register) 
+.PP
+\fBNote:\fP
+.RS 4
+Requires \fCF22M\fP module (see \fBBuilding liblightmodbus\fP) 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstatus\fP The master structure to work with 
+.br
+\fIparser\fP A parser structure containing response data 
+.br
+\fIrequestParser\fP A parser structure containing request data 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A \fBModbusError\fP error code 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for liblightmodbus from the source code\&.
