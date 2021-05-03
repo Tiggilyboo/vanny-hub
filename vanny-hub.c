@@ -1,9 +1,4 @@
-#include <stdio.h>
-
-#include <pico/stdlib.h>
-
-#include <lightmodbus/lightmodbus.h>
-#include <lightmodbus/master.h>
+#include "vanny-hub.h"
 
 #define LED_PIN 25
 #define UART_BR 9600
@@ -26,8 +21,6 @@
 #define REG_DCC50S_CHARGE_STATE 0x114
 
 static ModbusMaster master;
-static uint16_t char_delay_us = 1562500;  
-static uint16_t frame_delay_us = 3645833;
 
 void init_modbus() {
   uart_init(uart0, UART_BR);
@@ -130,7 +123,7 @@ static inline void build_request(uint16_t address, uint16_t count) {
   }
 }
 
-static inline uint16_t* parse_response() {
+static inline uint16_t parse_response() {
   int i;
   ModbusError err;
 
@@ -150,36 +143,45 @@ static inline uint16_t* parse_response() {
         printf("%02x ", master.data.regs[i]);
       }
       printf("\n");
-      return master.data.regs;
+      return (uint16_t)master.data.regs;
 
-    case MODBUS_COIL:
+    /*case MODBUS_COIL:
       printf("Coil %x (%d): ", master.data.index, master.data.count);
       for(i = 0; i < master.data.length; i++){
         printf( "%x ", modbusMaskRead(master.data.coils, master.data.length, i) );
       }
       printf("\n");
       return master.data.coils;
-
+    */
     default:
       return NULL;
   }
 }
 
-uint16_t* read_register(uint16_t address) {
+uint16_t read_register(uint16_t address) {
   build_request(address, 1);
   send_request();
   read_response();
   return parse_response();
 }
 
-void update_display() {
-  read_register(REG_DCC50S_ALT_A);
-  read_register(REG_DCC50S_ALT_V);
-  read_register(REG_DCC50S_ALT_V);
+void update_registers() {
+  char line[32];
+  uint16_t reg[3];
 
-  read_register(REG_DCC50S_SOL_A);
-  read_register(REG_DCC50S_SOL_V);
-  read_register(REG_DCC50S_SOL_W);
+  reg[0] = read_register(REG_DCC50S_ALT_A);
+  reg[1] = read_register(REG_DCC50S_ALT_V);
+  reg[2] = read_register(REG_DCC50S_ALT_W);
+  sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
+  draw_text("Altenator:", 0, 0);
+  draw_text(line, 32, 12);
+  
+  reg[0] = read_register(REG_DCC50S_SOL_A);
+  reg[1] = read_register(REG_DCC50S_SOL_V);
+  reg[2] = read_register(REG_DCC50S_SOL_W);
+  sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
+  draw_text("Solar:", 0, 24);
+  draw_text(line, 32, 36);
 
   read_register(REG_DCC50S_AUX_SOC);
   read_register(REG_DCC50S_AUX_V);
@@ -200,10 +202,15 @@ int main() {
   sleep_ms(3000);
   init_modbus();
 
+  display_init();
+  update_registers();
+  display_update();
+
   while(1) {
-    update_display();
+    //update_registers();
+    sleep_ms(1000);
     gpio_put(LED_PIN, 0);
-    sleep_ms(5000);
+    sleep_ms(1000);
     gpio_put(LED_PIN, 1);
   }
 }

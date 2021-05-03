@@ -1,20 +1,29 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.12)
 
 # SDK
 include(pico-sdk/pico_sdk_init.cmake)
 project(vanny-hub)
 pico_sdk_init()
 
-# Libraries
-set(ENDIANNESS little)
-add_subdirectory(liblightmodbus)
-include_directories(liblightmodbus/include liblightmodbus/src)
-
 # Source
 add_executable(vanny_hub
   vanny-hub.c
 )
-target_link_libraries(vanny_hub pico_stdlib lightmodbus)
+
+# Libraries
+set(ENDIANNESS little)
+add_subdirectory(liblightmodbus)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/liblightmodbus/include liblightmodbus/src)
+
+add_subdirectory(display)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/display)
+
+# linking
+target_link_libraries(vanny_hub 
+  pico_stdlib 
+  lightmodbus
+  display
+)
 
 # usb serial cdc
 pico_enable_stdio_usb(vanny_hub 1)

@@ -121,7 +121,7 @@ def run_server():
         context, 
         framer=ModbusRtuFramer, 
         identity=identity,
-        port='/dev/ttyUSB1', 
+        port='/dev/ttyUSB0', 
         timeout=.05, 
         baudrate=9600,
         stopbits=2,
