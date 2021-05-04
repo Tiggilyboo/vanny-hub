@@ -9,7 +9,8 @@
 
 uint16_t currentX, currentY;
 static uint8_t display_buffer[(SSD1306_H * SSD1306_W) >> 3];
-static FontDef_t* font = &FontNormal;
+static FontDef_t* font_normal = &FontNormal;
+static FontDef_t* font_title = &FontTitle;
 
 void ssd1306_init() {
   static uint8_t reg[2];
@@ -77,7 +78,7 @@ void ssd1306_init() {
   printf(" Done.\n");
 }
 
-void draw_pixel(uint16_t x, uint16_t y, bool colour) {
+inline void display_draw_pixel(uint16_t x, uint16_t y, bool colour) {
   if((x >= SSD1306_W) || y >= SSD1306_H) {
     return;
   }
@@ -88,7 +89,11 @@ void draw_pixel(uint16_t x, uint16_t y, bool colour) {
   }
 }
 
-char draw_char(char ch, uint16_t x, uint16_t y) {
+void display_clear() {
+  memset(display_buffer, 0x00, sizeof(display_buffer));
+}
+
+inline char display_draw_char(char ch, FontDef_t* font) {
   uint32_t i, b, j;
 
   if((SSD1306_W <= (currentX + font->font_width))
@@ -100,12 +105,8 @@ char draw_char(char ch, uint16_t x, uint16_t y) {
     b = font->data[(ch-32) * font->font_height + i];
     for(j = 0; j < font->font_width; j++) {
       if((b<<j & 0x8000)) {
-        draw_pixel(currentX + j, currentY + i, 1);
+        display_draw_pixel(currentX + j, currentY + i, 1);
       }
-      // Don't draw clear!
-      /*else {
-        draw_pixel(currentY + j, currentY + i, 0);
-      }*/
     }
   }
 
@@ -114,14 +115,24 @@ char draw_char(char ch, uint16_t x, uint16_t y) {
   return ch;
 }
 
-char draw_text(char* text, uint16_t x, uint16_t y) {
+inline char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y) {
+  currentX = x;
+  currentY = y;
+
   while(*text) {
-    if(draw_char(*text, x, y) != *text) {
+    if(display_draw_char(*text, font) != *text) {
       return *text;
     }
 
     text++;
   }
+}
+
+char display_draw_text(char* text, uint16_t x, uint16_t y) {
+  display_draw_font(text, font_normal, x, y);
+}
+char display_draw_title(char* title, uint16_t x, uint16_t y) {
+  display_draw_font(title, font_title, x, y);
 }
 
 void display_update() {

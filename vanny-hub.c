@@ -20,9 +20,18 @@
 #define REG_DCC50S_DAY_COUNT    0x10F
 #define REG_DCC50S_CHARGE_STATE 0x114
 
+typedef enum {
+  Overview,
+  Altenator,
+  Solar,
+} PageContents_t;
+
+static PageContents_t current_page;
 static ModbusMaster master;
 
-void init_modbus() {
+int init_modbus() {
+  uint16_t state;
+
   uart_init(uart0, UART_BR);
   
   gpio_init(0);
@@ -34,10 +43,16 @@ void init_modbus() {
   uart_set_hw_flow(uart0, false, true);
   uart_set_fifo_enabled(uart0, true);
 
-  int actual = uart_set_baudrate(uart0, UART_BR);
-  printf("Actual baudrate set to: %d\n", actual);
+  state = uart_set_baudrate(uart0, UART_BR);
+  printf("Actual baudrate set to: %d\n", state);
 
-  modbusMasterInit(&master);
+  state = modbusMasterInit(&master);
+  if(state != MODBUS_OK) {
+    printf("Unable to initialise modbus: %d", state); 
+    return -1;
+  }
+
+  return 0;
 }
 
 static inline void set_rts(bool on) {
@@ -66,7 +81,7 @@ static inline void read_response() {
     length++;
   
     // char delay
-    busy_wait_us(5900);
+    busy_wait_us(5000);
   }
   printf("\n");
 
@@ -123,7 +138,7 @@ static inline void build_request(uint16_t address, uint16_t count) {
   }
 }
 
-static inline uint16_t parse_response() {
+static inline uint16_t* parse_response() {
   int i;
   ModbusError err;
 
@@ -143,7 +158,7 @@ static inline uint16_t parse_response() {
         printf("%02x ", master.data.regs[i]);
       }
       printf("\n");
-      return (uint16_t)master.data.regs;
+      return master.data.regs;
 
     /*case MODBUS_COIL:
       printf("Coil %x (%d): ", master.data.index, master.data.count);
@@ -154,6 +169,7 @@ static inline uint16_t parse_response() {
       return master.data.coils;
     */
     default:
+      printf("Unable to parse response of type: %d", master.data.type);
       return NULL;
   }
 }
@@ -162,33 +178,70 @@ uint16_t read_register(uint16_t address) {
   build_request(address, 1);
   send_request();
   read_response();
-  return parse_response();
+  return *parse_response();
 }
 
-void update_registers() {
+inline static void count_chars_in_value(uint16_t v, int* c) {
+  char buf[32];
+
+  sprintf(buf, "%d", v);
+  while(buf[*c] != '\0')
+    *c++;
+}
+
+void update_page() {
   char line[32];
   uint16_t reg[3];
+  int len;
 
-  reg[0] = read_register(REG_DCC50S_ALT_A);
-  reg[1] = read_register(REG_DCC50S_ALT_V);
-  reg[2] = read_register(REG_DCC50S_ALT_W);
-  sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
-  draw_text("Altenator:", 0, 0);
-  draw_text(line, 32, 12);
-  
-  reg[0] = read_register(REG_DCC50S_SOL_A);
-  reg[1] = read_register(REG_DCC50S_SOL_V);
-  reg[2] = read_register(REG_DCC50S_SOL_W);
-  sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
-  draw_text("Solar:", 0, 24);
-  draw_text(line, 32, 36);
+  display_clear();
 
-  read_register(REG_DCC50S_AUX_SOC);
-  read_register(REG_DCC50S_AUX_V);
-  read_register(REG_DCC50S_TEMPERATURE);
+  switch(current_page) {
+    case Overview: 
+      reg[0] = read_register(REG_DCC50S_AUX_SOC) / 100;
+      reg[1] = read_register(REG_DCC50S_AUX_V) / 100;
+      reg[2] = read_register(REG_DCC50S_TEMPERATURE);
+      display_draw_text("< ALT", 0, 0);
+      display_draw_text("SOL >", 128 - 40, 0);
+
+      sprintf(&line, "%d %", reg[0]);
+      display_draw_title(line, 32, 24);
+
+      sprintf(&line, "%d V", reg[1]);
+      display_draw_text(line, 0, 42);
+
+      sprintf(&line, "%d degC", reg[2]);
+      display_draw_text(line, 128 - 32, 42);
+      break;
+
+    case Altenator:
+      reg[0] = read_register(REG_DCC50S_ALT_A) / 100;
+      reg[1] = read_register(REG_DCC50S_ALT_V) / 100;
+      reg[2] = read_register(REG_DCC50S_ALT_W) / 100;
+      sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
+      display_draw_title("Altenator", 0, 0);
+      display_draw_text(line, 32, 20);
+      break;
+
+    case Solar:
+      reg[0] = read_register(REG_DCC50S_SOL_A) / 100;
+      reg[1] = read_register(REG_DCC50S_SOL_V) / 100;
+      reg[2] = read_register(REG_DCC50S_SOL_W) / 100;
+      sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
+      display_draw_title("Solar", 0, 0);
+      display_draw_text(line, 32, 20);
+      break;
+
+    default:
+      return;
+  }
+
+  display_update();
 }
 
 int main() {
+  int state;
+
   stdio_init_all();
  
   gpio_init(LED_PIN);
@@ -199,19 +252,22 @@ int main() {
   set_rts(false);
 
   // wait for host... (should be a better way)
+  gpio_put(LED_PIN, 0);
   sleep_ms(3000);
-  init_modbus();
+  gpio_put(LED_PIN, 1);
 
+  state = init_modbus();
   display_init();
-  update_registers();
-  display_update();
+
+  gpio_put(LED_PIN, 0);
 
   while(1) {
-    //update_registers();
-    sleep_ms(1000);
-    gpio_put(LED_PIN, 0);
-    sleep_ms(1000);
     gpio_put(LED_PIN, 1);
+    update_page();
+    sleep_ms(1000);
+
+    gpio_put(LED_PIN, 0);
+    sleep_ms(9000);
   }
 }
 

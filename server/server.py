@@ -52,26 +52,26 @@ def run_server():
     chargingAlt = 0b0000000010000000;
 
     block = ModbusSparseDataBlock({
-        # charge state
-        0x100: 1,
-        # error codes (low)
-        0x101: 2,
-        # error codes (high)
+        # aux soc
+        0x100: 9645,
+        # aux v
+        0x101: 1411,
+        # max
         0x102: 3,
         # controller temperature
         0x103: 21,
         # altenator voltage
         0x104: 1348,
         # altenator amps
-        0x105: 40,
+        0x105: 4000,
         # altenator watts
-        0x106: 496,
+        0x106: 4960,
         # solar v
         0x107: 304,
         # solar a
         0x108: 20,
         # solar w
-        0x109: 608,
+        0x109: 6684,
         # day count
         0x10F: 1,
         # charge state
