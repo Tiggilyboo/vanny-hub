@@ -6,7 +6,7 @@
 #define UART_SBITS 2
 #define RTS_PIN 22
 
-#define SLAVE_ADDR_DCC50S       0x0F
+#define SLAVE_ADDR_DCC50S       0x01
 #define REG_DCC50S_AUX_SOC      0x100
 #define REG_DCC50S_AUX_V        0x101
 #define REG_DCC50S_MAX          0x102
@@ -25,6 +25,15 @@ typedef enum {
   Altenator,
   Solar,
 } PageContents_t;
+
+#define CHARGE_STATE_NONE 0
+#define CHARGE_STATE_SOLAR (1 << 2)
+#define CHARGE_STATE_EQ (1 << 3)
+#define CHARGE_STATE_BOOST (1 << 4)
+#define CHARGE_STATE_FLOAT (1 << 5)
+#define CHARGE_STATE_LIMITED (1 << 6)
+#define CHARGE_STATE_ALT (1 << 7)
+#define MAX_CHARGE_VOLTS 14.8f
 
 static PageContents_t current_page;
 static ModbusMaster master;
@@ -55,7 +64,7 @@ int init_modbus() {
   return 0;
 }
 
-static inline void set_rts(bool on) {
+inline static void set_rts(bool on) {
   gpio_put(RTS_PIN, on ? 1 : 0);
 }
 
@@ -103,7 +112,7 @@ void flush_rx() {
   printf("\n");
 }
 
-static inline void send_request() {
+void send_request() {
   flush_rx();  
 
   printf("Sending ");
@@ -126,7 +135,7 @@ static inline void send_request() {
   flush_rx();
 }
 
-static inline void build_request(uint16_t address, uint16_t count) { 
+void build_request(uint16_t address, uint16_t count) { 
   uint8_t resp;
   resp = modbusBuildRequest03(&master, SLAVE_ADDR_DCC50S, address, count);
   if(resp != MODBUS_OK) {
@@ -138,7 +147,7 @@ static inline void build_request(uint16_t address, uint16_t count) {
   }
 }
 
-static inline uint16_t* parse_response() {
+uint16_t parse_response() {
   int i;
   ModbusError err;
 
@@ -158,7 +167,7 @@ static inline uint16_t* parse_response() {
         printf("%02x ", master.data.regs[i]);
       }
       printf("\n");
-      return master.data.regs;
+      return *master.data.regs;
 
     /*case MODBUS_COIL:
       printf("Coil %x (%d): ", master.data.index, master.data.count);
@@ -174,19 +183,59 @@ static inline uint16_t* parse_response() {
   }
 }
 
-uint16_t read_register(uint16_t address) {
-  build_request(address, 1);
+uint16_t read_register(uint16_t address, uint16_t count) {
+  build_request(address, count);
   send_request();
   read_response();
-  return *parse_response();
+  return parse_response();
 }
 
-inline static void count_chars_in_value(uint16_t v, int* c) {
-  char buf[32];
+char* append_buf(char* s1, char* s2) {
+  if(s1 == NULL || s2 == NULL)
+    return NULL;
 
-  sprintf(buf, "%d", v);
-  while(buf[*c] != '\0')
-    *c++;
+  int n = sizeof(s1);
+  char* dest = s1;
+  while(*dest != '\0'){
+    dest++;
+  }
+  while(n--){
+    if(!(*dest++ = *s2++))
+      return s1;
+  }
+  *dest = '\0';
+
+  return s1;
+}
+
+void get_charge_status(char* buffer, uint16_t state) {
+  bool charging = false;
+
+  if ((state & CHARGE_STATE_SOLAR) > 0) {
+    append_buf(buffer, "Sol ");
+    charging = true;
+  }
+  if ((state & CHARGE_STATE_ALT) > 0) {
+    append_buf(buffer, "Alt ");
+    charging = true;
+  }
+  if(!charging){
+    sprintf(buffer, "No charge");
+    return;
+  }
+
+  if ((state & CHARGE_STATE_EQ) > 0) {
+    append_buf(buffer, "=");
+  }
+  if ((state & CHARGE_STATE_BOOST) > 0) {
+    append_buf(buffer, "++");
+  }
+  if ((state & CHARGE_STATE_FLOAT) > 0) {
+    append_buf(buffer, "~");
+  }
+  if ((state & CHARGE_STATE_LIMITED) > 0) {
+    append_buf(buffer, "+");
+  }
 }
 
 void update_page() {
@@ -198,35 +247,35 @@ void update_page() {
 
   switch(current_page) {
     case Overview: 
-      reg[0] = read_register(REG_DCC50S_AUX_SOC) / 100;
-      reg[1] = read_register(REG_DCC50S_AUX_V) / 100;
-      reg[2] = read_register(REG_DCC50S_TEMPERATURE);
-      display_draw_text("< ALT", 0, 0);
-      display_draw_text("SOL >", 128 - 40, 0);
+      reg[0] = read_register(REG_DCC50S_AUX_SOC, 1);
+      reg[1] = read_register(REG_DCC50S_AUX_V, 1);
+      reg[2] = read_register(REG_DCC50S_TEMPERATURE, 1);
 
-      sprintf(&line, "%d %", reg[0]);
-      display_draw_title(line, 32, 24);
+      get_charge_status(&line, reg[0]);
+      display_draw_title(line, 0, 0);
+
+      sprintf(&line, "%d%%", (int)(((float)reg[1] / MAX_CHARGE_VOLTS)), reg[1]);
+      display_draw_title(line, 128 - 56, 28);
 
       sprintf(&line, "%d V", reg[1]);
-      display_draw_text(line, 0, 42);
-
-      sprintf(&line, "%d degC", reg[2]);
-      display_draw_text(line, 128 - 32, 42);
+      display_draw_text(line, 0, 28);
+      sprintf(&line, "%d *C", reg[2]);
+      display_draw_text(line, 0, 40);
       break;
 
     case Altenator:
-      reg[0] = read_register(REG_DCC50S_ALT_A) / 100;
-      reg[1] = read_register(REG_DCC50S_ALT_V) / 100;
-      reg[2] = read_register(REG_DCC50S_ALT_W) / 100;
+      reg[0] = read_register(REG_DCC50S_ALT_A, 1);
+      reg[1] = read_register(REG_DCC50S_ALT_V, 1);
+      reg[2] = read_register(REG_DCC50S_ALT_W, 1);
       sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
       display_draw_title("Altenator", 0, 0);
       display_draw_text(line, 32, 20);
       break;
 
     case Solar:
-      reg[0] = read_register(REG_DCC50S_SOL_A) / 100;
-      reg[1] = read_register(REG_DCC50S_SOL_V) / 100;
-      reg[2] = read_register(REG_DCC50S_SOL_W) / 100;
+      reg[0] = read_register(REG_DCC50S_SOL_A, 1);
+      reg[1] = read_register(REG_DCC50S_SOL_V, 1);
+      reg[2] = read_register(REG_DCC50S_SOL_W, 1);
       sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
       display_draw_title("Solar", 0, 0);
       display_draw_text(line, 32, 20);
@@ -240,8 +289,6 @@ void update_page() {
 }
 
 int main() {
-  int state;
-
   stdio_init_all();
  
   gpio_init(LED_PIN);
@@ -256,18 +303,15 @@ int main() {
   sleep_ms(3000);
   gpio_put(LED_PIN, 1);
 
-  state = init_modbus();
+  init_modbus();
   display_init();
-
   gpio_put(LED_PIN, 0);
 
   while(1) {
     gpio_put(LED_PIN, 1);
     update_page();
-    sleep_ms(1000);
-
     gpio_put(LED_PIN, 0);
-    sleep_ms(9000);
+    sleep_ms(10000);
   }
 }
 

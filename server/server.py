@@ -53,29 +53,30 @@ def run_server():
 
     block = ModbusSparseDataBlock({
         # aux soc
-        0x100: 9645,
+        0x101: 0b0000000010001100,
+        0x100: 0b0000000010001100,
         # aux v
-        0x101: 1411,
+        0x102: 1411,
         # max
-        0x102: 3,
+        0x103: 3,
         # controller temperature
-        0x103: 21,
+        0x104: 21,
         # altenator voltage
-        0x104: 1348,
+        0x105: 1348,
         # altenator amps
-        0x105: 4000,
+        0x106: 4000,
         # altenator watts
-        0x106: 4960,
+        0x107: 4960,
         # solar v
-        0x107: 304,
+        0x108: 304,
         # solar a
-        0x108: 20,
+        0x109: 20,
         # solar w
-        0x109: 6684,
+        0x10A: 6684,
         # day count
-        0x10F: 1,
+        0x110: 1,
         # charge state
-        0x114: 0,
+        0x115: 0,
     })
     #     block = ModbusSequentialDataBlock(0x00, [0]*5)
     #
