@@ -1,24 +1,34 @@
 #include "vanny-hub.h"
 
-#define LED_PIN 25
+#define UART_PORT uart0
 #define UART_BR 9600
 #define UART_DBITS 8
 #define UART_SBITS 2
+#define LED_PIN 25
 #define RTS_PIN 22
 
 #define SLAVE_ADDR_DCC50S       0x01
-#define REG_DCC50S_AUX_SOC      0x100
-#define REG_DCC50S_AUX_V        0x101
-#define REG_DCC50S_MAX          0x102
-#define REG_DCC50S_TEMPERATURE  0x103
-#define REG_DCC50S_ALT_V        0x104
-#define REG_DCC50S_ALT_A        0x105
-#define REG_DCC50S_ALT_W        0x106
-#define REG_DCC50S_SOL_V        0x107
-#define REG_DCC50S_SOL_A        0x108
-#define REG_DCC50S_SOL_W        0x109
-#define REG_DCC50S_DAY_COUNT    0x10F
-#define REG_DCC50S_CHARGE_STATE 0x114
+#define REG_START               0x100
+#define REG_AUX_SOC             0       // 0x100
+#define REG_AUX_V               1
+#define REG_AUX_A               2
+#define REG_TEMPERATURE         3
+#define REG_ALT_V               4
+#define REG_ALT_A               5
+#define REG_ALT_W               6
+#define REG_SOL_V               7
+#define REG_SOL_A               8
+#define REG_SOL_W               9     // 0x109
+#define REG_DAY_MIN_V           11    // 0x10B
+#define REG_DAY_MAX_V           12    // 0x10C
+#define REG_DAY_MAX_A           13    // 0x10D
+#define REG_DAY_MAX_W           15    // 0x10F
+#define REG_DAY_TOTAL_AH        17    // 0x113
+#define REG_DAY_COUNT           21    // 0x115 
+#define REG_CHARGE_STATE        32    // 0x120
+#define REG_ERR_1               33    // 0x121
+#define REG_ERR_2               34    // 0x122
+#define REG_END                 35
 
 typedef enum {
   Overview,
@@ -26,33 +36,51 @@ typedef enum {
   Solar,
 } PageContents_t;
 
-#define CHARGE_STATE_NONE 0
-#define CHARGE_STATE_SOLAR (1 << 2)
-#define CHARGE_STATE_EQ (1 << 3)
-#define CHARGE_STATE_BOOST (1 << 4)
-#define CHARGE_STATE_FLOAT (1 << 5)
-#define CHARGE_STATE_LIMITED (1 << 6)
-#define CHARGE_STATE_ALT (1 << 7)
+#define CHARGE_STATE_NONE     0
+#define CHARGE_STATE_SOLAR    (1 << 2)
+#define CHARGE_STATE_EQ       (1 << 3)
+#define CHARGE_STATE_BOOST    (1 << 4)
+#define CHARGE_STATE_FLOAT    (1 << 5)
+#define CHARGE_STATE_LIMITED  (1 << 6)
+#define CHARGE_STATE_ALT      (1 << 7)
+
+// For REG_ERR_1
+#define ERR_TOO_COLD          (1 << 11)
+#define ERR_OVERCHARGE        (1 << 10)
+#define ERR_RPOLARITY         (1 << 9)
+#define ERR_ALT_OVER_VOLT      (1 << 8)
+#define ERR_ALT_OVER_AMP       (1 << 5)
+
+// For REG_ERR_2
+#define ERR_AUX_DISCHARGED     (1 << 0)
+#define ERR_AUX_OVER_VOLT      (1 << 1)
+#define ERR_AUX_UNDER_VOLT     (1 << 2)
+#define ERR_CTRL_OVERHEAT      (1 << 5)
+#define ERR_AUX_OVERHEAT       (1 << 6)
+#define ERR_SOL_OVER_AMP       (1 << 7)
+#define ERR_SOL_OVER_VOLT      (1 << 9)
+#define ERR_SOL_RPOLARITY      (1 << 12)
+
 #define MAX_CHARGE_VOLTS 14.8f
 
 static PageContents_t current_page;
 static ModbusMaster master;
 
-int init_modbus() {
+static inline int init_modbus() {
   uint16_t state;
 
-  uart_init(uart0, UART_BR);
+  uart_init(UART_PORT, UART_BR);
   
   gpio_init(0);
   gpio_set_function(0, GPIO_FUNC_UART);
   gpio_init(1);
   gpio_set_function(1, GPIO_FUNC_UART);
 
-  uart_set_format(uart0, UART_DBITS, UART_SBITS, UART_PARITY_NONE);
-  uart_set_hw_flow(uart0, false, true);
-  uart_set_fifo_enabled(uart0, true);
+  uart_set_format(UART_PORT, UART_DBITS, UART_SBITS, UART_PARITY_NONE);
+  uart_set_hw_flow(UART_PORT, false, true);
+  uart_set_fifo_enabled(UART_PORT, true);
 
-  state = uart_set_baudrate(uart0, UART_BR);
+  state = uart_set_baudrate(UART_PORT, UART_BR);
   printf("Actual baudrate set to: %d\n", state);
 
   state = modbusMasterInit(&master);
@@ -64,33 +92,33 @@ int init_modbus() {
   return 0;
 }
 
-inline static void set_rts(bool on) {
+static inline void set_rts(bool on) {
   gpio_put(RTS_PIN, on ? 1 : 0);
 }
 
 static inline void read_response() {
-  unsigned int length = 0;
+  uint16_t length = 0;
   uint8_t frame[255];
     
   printf("Waiting on response... ");
-  uart_is_readable_within_us(uart0, 50000);
-  if(!uart_is_readable(uart0)) {
-    printf("RX empty.");
+  uart_is_readable_within_us(UART_PORT, 50000);
+  if(!uart_is_readable(UART_PORT)) {
+    printf("RX empty.\n");
     return;
   }
 
   printf("Got: ");
-  while(uart_is_readable(uart0)) {
-    frame[length] = uart_getc(uart0);
+  while(uart_is_readable(UART_PORT)) {
+    frame[length] = uart_getc(UART_PORT);
     printf("%02x ", frame[length]);
     if(length >= 255){
-      printf("RX frame buffer overflow!");
+      printf("RX frame buffer overflow!\n");
       break;
     }
     length++;
   
     // char delay
-    busy_wait_us(5000);
+    uart_is_readable_within_us(UART_PORT, 5000);
   }
   printf("\n");
 
@@ -102,11 +130,11 @@ static inline void read_response() {
 void flush_rx() {
   char c;
   printf("Flushing RX: ");
-  if(!uart_is_readable(uart0)) {
+  if(!uart_is_readable(UART_PORT)) {
     printf("empty.");
   }
-  while(uart_is_readable(uart0)) {
-    c = uart_getc(uart0);
+  while(uart_is_readable(UART_PORT)) {
+    c = uart_getc(UART_PORT);
     printf("%02x ", c);
   }
   printf("\n");
@@ -121,12 +149,12 @@ void send_request() {
     printf("%02x ", master.request.frame[i]);
   }
 
-  while(!uart_is_writable(uart0))
+  while(!uart_is_writable(UART_PORT))
     busy_wait_us(5000);
 
   set_rts(true);
   for(i = 0; i < master.request.length; i++){
-    uart_putc_raw(uart0, master.request.frame[i]);
+    uart_putc_raw(UART_PORT, master.request.frame[i]);
     busy_wait_us(5000);
   }
   set_rts(false);
@@ -147,7 +175,7 @@ void build_request(uint16_t address, uint16_t count) {
   }
 }
 
-uint16_t parse_response() {
+uint16_t* parse_response() {
   int i;
   ModbusError err;
 
@@ -167,23 +195,15 @@ uint16_t parse_response() {
         printf("%02x ", master.data.regs[i]);
       }
       printf("\n");
-      return *master.data.regs;
-
-    /*case MODBUS_COIL:
-      printf("Coil %x (%d): ", master.data.index, master.data.count);
-      for(i = 0; i < master.data.length; i++){
-        printf( "%x ", modbusMaskRead(master.data.coils, master.data.length, i) );
-      }
-      printf("\n");
-      return master.data.coils;
-    */
+      return master.data.regs;
+    
     default:
       printf("Unable to parse response of type: %d", master.data.type);
       return NULL;
   }
 }
 
-uint16_t read_register(uint16_t address, uint16_t count) {
+uint16_t* read_register(uint16_t address, uint16_t count) {
   build_request(address, count);
   send_request();
   read_response();
@@ -238,51 +258,83 @@ void get_charge_status(char* buffer, uint16_t state) {
   }
 }
 
-void update_page() {
+void get_temperatures(char* buffer, uint16_t state) {
+  uint16_t internal_temp = (state >> 8);
+  uint16_t aux_temp = (state << 8) >> 8;
+
+  sprintf(buffer, "C %d*C B %d*C", internal_temp, aux_temp);
+}
+
+void update_page_overview(uint16_t* reg) {
   char line[32];
-  uint16_t reg[3];
-  int len;
+
+  uint16_t aux_soc = reg[REG_AUX_SOC];
+  float aux_v = (float)reg[REG_AUX_V] / 10.f;   // 0.1v
+  float aux_a = (float)reg[REG_AUX_A] / 100.f;  // 0.01a
+
+  uint16_t charge_state = reg[REG_CHARGE_STATE];
+  uint16_t temperature = reg[REG_TEMPERATURE];
+
+  get_charge_status(&line, charge_state);
+  display_draw_title(line, 0, 0);
+
+  sprintf(&line, "%d%%", aux_soc); 
+  display_draw_title(line, 128 - 56, 28);
+
+  sprintf(&line, "+%.*fA", 2, aux_a);
+  display_draw_text(line, 0, 24);
+  sprintf(&line, "%.*fV", 1, aux_v);
+  display_draw_text(line, 0, 36);
+
+  get_temperatures(&line, temperature);
+  display_draw_text(line, 0, 50);
+}
+
+void update_page_solar(uint16_t* reg) {
+  char line[32];
+
+  uint16_t sol_a = reg[REG_SOL_A];
+  uint16_t sol_v = reg[REG_SOL_V];
+  uint16_t sol_w = reg[REG_SOL_W];
+
+  sprintf(&line, "%dA %dV %dW", sol_a, sol_v, sol_w);
+  display_draw_title("Solar", 0, 0);
+  display_draw_text(line, 32, 20);
+}
+
+void update_page_altenator(uint16_t* reg) {
+  char line[32];
+
+  uint16_t alt_a = reg[REG_ALT_A];
+  uint16_t alt_v = reg[REG_ALT_V];
+  uint16_t alt_w = reg[REG_ALT_W];
+
+  sprintf(&line, "%dA %dV %dW", alt_a, alt_v, alt_w);
+  display_draw_title("Altenator", 0, 0);
+  display_draw_text(line, 32, 20);
+}
+
+void update_page() {
+  uint16_t* reg = read_register(REG_START, REG_END);
 
   display_clear();
 
   switch(current_page) {
     case Overview: 
-      reg[0] = read_register(REG_DCC50S_AUX_SOC, 1);
-      reg[1] = read_register(REG_DCC50S_AUX_V, 1);
-      reg[2] = read_register(REG_DCC50S_TEMPERATURE, 1);
-
-      get_charge_status(&line, reg[0]);
-      display_draw_title(line, 0, 0);
-
-      sprintf(&line, "%d%%", (int)(((float)reg[1] / MAX_CHARGE_VOLTS)), reg[1]);
-      display_draw_title(line, 128 - 56, 28);
-
-      sprintf(&line, "%d V", reg[1]);
-      display_draw_text(line, 0, 28);
-      sprintf(&line, "%d *C", reg[2]);
-      display_draw_text(line, 0, 40);
+      update_page_overview(reg);
       break;
 
     case Altenator:
-      reg[0] = read_register(REG_DCC50S_ALT_A, 1);
-      reg[1] = read_register(REG_DCC50S_ALT_V, 1);
-      reg[2] = read_register(REG_DCC50S_ALT_W, 1);
-      sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
-      display_draw_title("Altenator", 0, 0);
-      display_draw_text(line, 32, 20);
+      update_page_altenator(reg);
       break;
 
     case Solar:
-      reg[0] = read_register(REG_DCC50S_SOL_A, 1);
-      reg[1] = read_register(REG_DCC50S_SOL_V, 1);
-      reg[2] = read_register(REG_DCC50S_SOL_W, 1);
-      sprintf(&line, "%dA %dV %dW", reg[0], reg[1], reg[2]);
-      display_draw_title("Solar", 0, 0);
-      display_draw_text(line, 32, 20);
+      update_page_solar(reg);
       break;
 
     default:
-      return;
+      display_draw_title("404", 0, 0);
+      break;
   }
 
   display_update();
@@ -305,6 +357,8 @@ int main() {
 
   init_modbus();
   display_init();
+  display_clear();
+  display_update();
   gpio_put(LED_PIN, 0);
 
   while(1) {

@@ -15,7 +15,7 @@ static FontDef_t* font_title = &FontTitle;
 void ssd1306_init() {
   static uint8_t reg[2];
 
-  printf("Initialising ssd1306...");
+  printf("Initialising ssd1306...\n");
   sleep_ms(200);
 
   reg[0] = 0x00; reg[1] = 0xAE; //display off

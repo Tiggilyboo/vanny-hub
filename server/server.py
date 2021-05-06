@@ -49,34 +49,64 @@ def run_server():
     # the data while the sparse can. Once again, there are devices that exhibit
     # both forms of behavior::
     #
-    chargingAlt = 0b0000000010000000;
-
     block = ModbusSparseDataBlock({
         # aux soc
-        0x101: 0b0000000010001100,
-        0x100: 0b0000000010001100,
+        0x101: 0b01011111,
         # aux v
-        0x102: 1411,
-        # max
-        0x103: 3,
+        0x102: 141, # 0.1V
+        # aux a
+        0x103: 3309, # 0.01A
         # controller temperature
-        0x104: 21,
+        0x104: 0b0001010100001111, # H: ctrl temp, L: battery temp sensor
         # altenator voltage
-        0x105: 1348,
+        0x105: 146, # 0.1V
         # altenator amps
-        0x106: 4000,
+        0x106: 4000, #0.01A
         # altenator watts
-        0x107: 4960,
+        0x107: 496,
         # solar v
         0x108: 304,
         # solar a
         0x109: 20,
         # solar w
         0x10A: 6684,
-        # day count
-        0x110: 1,
-        # charge state
+        0x10B: 0,
+        # lowest battery V in day
+        0x10C: 108,     # 0.1
+        # max battery V in day
+        0x10D: 144,
+        # max battery A in day
+        0x10E: 5000, #0.01A
+
+        0x10F: 0,
+        0x110: 0,
+        0x111: 0,
+        0x112: 0,
+        0x113: 0,
+        0x114: 0,
         0x115: 0,
+
+        # running day count
+        0x116: 1,
+
+        0x117: 0,
+        # number of times battery is full in day
+        0x118: 3,
+
+        0x119: 0,
+        0x11A: 0,
+        0x11B: 0,
+        0x11C: 0,
+        0x11D: 0,
+        0x11E: 0,
+        0x11F: 0,
+        0x120: 0,
+
+        # charge state (L)
+        0x121: 0b0000000010001010,
+
+        0x122: 0,
+        0x123: 0,
     })
     #     block = ModbusSequentialDataBlock(0x00, [0]*5)
     #
