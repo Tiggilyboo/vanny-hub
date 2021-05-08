@@ -6,6 +6,9 @@
 #define UART_SBITS 2
 #define LED_PIN 25
 #define RTS_PIN 22
+#define BTN_PIN 21
+#define UART_PIN_TX 0
+#define UART_PIN_RX 1
 
 #define SLAVE_ADDR_DCC50S       0x01
 #define REG_START               0x100
@@ -29,12 +32,6 @@
 #define REG_ERR_1               33    // 0x121
 #define REG_ERR_2               34    // 0x122
 #define REG_END                 35
-
-typedef enum {
-  Overview,
-  Altenator,
-  Solar,
-} PageContents_t;
 
 #define CHARGE_STATE_NONE     0
 #define CHARGE_STATE_SOLAR    (1 << 2)
@@ -61,20 +58,27 @@ typedef enum {
 #define ERR_SOL_OVER_VOLT      (1 << 9)
 #define ERR_SOL_RPOLARITY      (1 << 12)
 
-#define MAX_CHARGE_VOLTS 14.8f
+typedef enum {
+  Overview,
+  Altenator,
+  Solar,
+  PageContentsCount,
+} PageContents_t;
 
 static PageContents_t current_page;
 static ModbusMaster master;
+static uint64_t btn_last_pressed;
+static uint16_t* dcc50s_registers;
 
-static inline int init_modbus() {
+static inline int uart_modbus_init() {
   uint16_t state;
 
   uart_init(UART_PORT, UART_BR);
   
-  gpio_init(0);
-  gpio_set_function(0, GPIO_FUNC_UART);
-  gpio_init(1);
-  gpio_set_function(1, GPIO_FUNC_UART);
+  gpio_init(UART_PIN_TX);
+  gpio_set_function(UART_PIN_TX, GPIO_FUNC_UART);
+  gpio_init(UART_PIN_RX);
+  gpio_set_function(UART_PIN_RX, GPIO_FUNC_UART);
 
   uart_set_format(UART_PORT, UART_DBITS, UART_SBITS, UART_PARITY_NONE);
   uart_set_hw_flow(UART_PORT, false, true);
@@ -203,7 +207,7 @@ uint16_t* parse_response() {
   }
 }
 
-uint16_t* read_register(uint16_t address, uint16_t count) {
+uint16_t* read_registers(uint16_t address, uint16_t count) {
   build_request(address, count);
   send_request();
   read_response();
@@ -265,15 +269,15 @@ void get_temperatures(char* buffer, uint16_t state) {
   sprintf(buffer, "C %d*C B %d*C", internal_temp, aux_temp);
 }
 
-void update_page_overview(uint16_t* reg) {
+void update_page_overview() {
   char line[32];
 
-  uint16_t aux_soc = reg[REG_AUX_SOC];
-  float aux_v = (float)reg[REG_AUX_V] / 10.f;   // 0.1v
-  float aux_a = (float)reg[REG_AUX_A] / 100.f;  // 0.01a
+  uint16_t aux_soc = dcc50s_registers[REG_AUX_SOC];
+  float aux_v = (float)dcc50s_registers[REG_AUX_V] / 10.f;   // 0.1v
+  float aux_a = (float)dcc50s_registers[REG_AUX_A] / 100.f;  // 0.01a
 
-  uint16_t charge_state = reg[REG_CHARGE_STATE];
-  uint16_t temperature = reg[REG_TEMPERATURE];
+  uint16_t charge_state = dcc50s_registers[REG_CHARGE_STATE];
+  uint16_t temperature = dcc50s_registers[REG_TEMPERATURE];
 
   get_charge_status(&line, charge_state);
   display_draw_title(line, 0, 0);
@@ -290,24 +294,24 @@ void update_page_overview(uint16_t* reg) {
   display_draw_text(line, 0, 50);
 }
 
-void update_page_solar(uint16_t* reg) {
+void update_page_solar() {
   char line[32];
 
-  uint16_t sol_a = reg[REG_SOL_A];
-  uint16_t sol_v = reg[REG_SOL_V];
-  uint16_t sol_w = reg[REG_SOL_W];
+  uint16_t sol_a = dcc50s_registers[REG_SOL_A];
+  uint16_t sol_v = dcc50s_registers[REG_SOL_V];
+  uint16_t sol_w = dcc50s_registers[REG_SOL_W];
 
   sprintf(&line, "%dA %dV %dW", sol_a, sol_v, sol_w);
   display_draw_title("Solar", 0, 0);
   display_draw_text(line, 32, 20);
 }
 
-void update_page_altenator(uint16_t* reg) {
+void update_page_altenator() {
   char line[32];
 
-  uint16_t alt_a = reg[REG_ALT_A];
-  uint16_t alt_v = reg[REG_ALT_V];
-  uint16_t alt_w = reg[REG_ALT_W];
+  uint16_t alt_a = dcc50s_registers[REG_ALT_A];
+  uint16_t alt_v = dcc50s_registers[REG_ALT_V];
+  uint16_t alt_w = dcc50s_registers[REG_ALT_W];
 
   sprintf(&line, "%dA %dV %dW", alt_a, alt_v, alt_w);
   display_draw_title("Altenator", 0, 0);
@@ -315,21 +319,20 @@ void update_page_altenator(uint16_t* reg) {
 }
 
 void update_page() {
-  uint16_t* reg = read_register(REG_START, REG_END);
 
   display_clear();
 
   switch(current_page) {
     case Overview: 
-      update_page_overview(reg);
+      update_page_overview();
       break;
 
     case Altenator:
-      update_page_altenator(reg);
+      update_page_altenator();
       break;
 
     case Solar:
-      update_page_solar(reg);
+      update_page_solar();
       break;
 
     default:
@@ -340,11 +343,46 @@ void update_page() {
   display_update();
 }
 
+void btn_handler(uint gpio, uint32_t events) {
+  static uint64_t time_handled;
+
+  printf("Btn @ %d is now %02x\n", gpio, events);
+
+  if (events & 0x1) { // Low
+  }
+  if (events & 0x2) { // High
+  }
+  if (events & 0x4) { // Fall
+    time_handled = time_us_64(); 
+    if(time_handled >= btn_last_pressed + 5000000) // 5s
+    {
+      btn_last_pressed = time_handled;
+      printf("Turn off the screen!\n");
+    }
+  }
+  if (events & 0x8) { // Rise
+    // debounce
+    if(time_us_64() > btn_last_pressed + 350000) // 350ms
+    {
+      current_page = (++current_page) % PageContentsCount;
+      printf("Changed current page to %d\n", current_page);
+      update_page();
+    }
+  }
+
+}
+
 int main() {
   stdio_init_all();
  
   gpio_init(LED_PIN);
   gpio_set_dir(LED_PIN, GPIO_OUT);
+
+  gpio_init(BTN_PIN);
+  gpio_set_dir(BTN_PIN, GPIO_IN);
+  gpio_set_irq_enabled_with_callback(BTN_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &btn_handler);
+  current_page = Overview;
+  btn_last_pressed = time_us_64();
 
   gpio_init(RTS_PIN);
   gpio_set_dir(RTS_PIN, GPIO_OUT);
@@ -355,7 +393,7 @@ int main() {
   sleep_ms(3000);
   gpio_put(LED_PIN, 1);
 
-  init_modbus();
+  uart_modbus_init();
   display_init();
   display_clear();
   display_update();
@@ -363,6 +401,7 @@ int main() {
 
   while(1) {
     gpio_put(LED_PIN, 1);
+    dcc50s_registers = read_registers(REG_START, REG_END);
     update_page();
     gpio_put(LED_PIN, 0);
     sleep_ms(10000);
