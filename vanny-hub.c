@@ -4,11 +4,13 @@
 #define UART_BR 9600
 #define UART_DBITS 8
 #define UART_SBITS 2
+#define UART_PIN_TX 0
+#define UART_PIN_RX 1
+#define UART_RX_TIMEOUT 3000000
+
 #define LED_PIN 25
 #define RTS_PIN 22
 #define BTN_PIN 21
-#define UART_PIN_TX 0
-#define UART_PIN_RX 1
 
 #define SLAVE_ADDR_DCC50S       1
 #define REG_START               0x100
@@ -69,26 +71,51 @@ static PageContents_t current_page;
 static ModbusMaster master;
 static uint64_t btn_last_pressed;
 static uint16_t* dcc50s_registers;
+static bool ready_to_parse = false;
 
 const uint16_t char_delay = ((1 / (float)UART_BR) * 11.f * 1.5f) * 1000000; // 1.5t calc_delay_us(1.5f);
 const uint16_t frame_timeout =((1 / (float)UART_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
+
+void on_uart_rx() {
+  uint16_t length = 0;
+  char frame[255];
+
+  while(uart_is_readable(UART_PORT)) {
+    if(master.response.length > 254){
+      printf("RX frame buffer overflow!\n");
+      break;
+    }
+
+    frame[length] = uart_getc(UART_PORT);
+    printf(" %02x", frame[length]);
+    length++;
+  }
+
+  master.response.frame = frame;
+  master.response.length = length;
+  ready_to_parse = true;
+}
 
 static inline int uart_modbus_init() {
   uint16_t state;
 
   uart_init(UART_PORT, UART_BR);
   
-  gpio_init(UART_PIN_TX);
   gpio_set_function(UART_PIN_TX, GPIO_FUNC_UART);
-  gpio_init(UART_PIN_RX);
   gpio_set_function(UART_PIN_RX, GPIO_FUNC_UART);
-
-  uart_set_format(UART_PORT, UART_DBITS, UART_SBITS, UART_PARITY_NONE);
-  uart_set_hw_flow(UART_PORT, false, false);
-  uart_set_fifo_enabled(UART_PORT, false);
-
+  
   state = uart_set_baudrate(UART_PORT, UART_BR);
   printf("Actual baudrate set to: %d\n", state);
+
+  uart_set_hw_flow(UART_PORT, false, false);
+  uart_set_format(UART_PORT, UART_DBITS, UART_SBITS, UART_PARITY_NONE);
+  uart_set_fifo_enabled(UART_PORT, false);
+
+  int UART_IRQ = UART_PORT == uart0 ? UART0_IRQ : UART1_IRQ;
+  irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
+  irq_set_enabled(UART_IRQ, true);
+
+  uart_set_irq_enables(UART_PORT, true, false);
 
   state = modbusMasterInit(&master);
   if(state != MODBUS_OK) {
@@ -113,55 +140,28 @@ static void flush_rx() {
   printf("\n");
 }
 
-void read_response() {
-  uint16_t length = 0, i;
-  uint8_t frame[255];
-
-  flush_rx();
-
-  if(!uart_is_readable_within_us(UART_PORT, 5000000)) {
-    printf("No response.\n");
-    return;
-  }
-  
-  while(uart_is_readable(UART_PORT)) {
-    frame[length] = uart_getc(UART_PORT);
-    if(length >= 255){
-      printf("RX frame buffer overflow!\n");
-      break;
-    }
-    length++;
-  
-    // frame timeout
-    if(!uart_is_readable_within_us(UART_PORT, frame_timeout))
-      break;
-  }
-  for(i = 0; i < length; i++) {
-    printf("%02x ", frame[i]);
-  }
-  printf("\n");
-
-  // Set response frame
-  master.response.frame = frame;
-  master.response.length = length;
-}
-
 
 void send_request() {
   int i;
-  flush_rx();
-  busy_wait_us(frame_timeout);
 
   for(i = 0; i < master.request.length; i++){
     printf("%02x ", master.request.frame[i]);
   }
 
   set_rts(true);
+
+  // pre-delay 5-10ms
+  busy_wait_us(5000);
+
   for(i = 0; i < master.request.length; i++){
     uart_putc_raw(UART_PORT, master.request.frame[i]);
     busy_wait_us(char_delay);
   }
   set_rts(false);
+
+  flush_rx();
+  ready_to_parse = false;
+
   printf(" Sent.\n");
 }
 
@@ -173,6 +173,8 @@ void build_request(uint16_t address, uint16_t count) {
     switch (resp) {
       case MODBUS_ERROR_BUILD:
         printf("build error: %d\n", master.buildError);
+      default:
+        printf("unable to build request!\n");
     }
   }
 }
@@ -219,8 +221,13 @@ uint16_t* parse_response() {
 
 uint16_t* read_registers(uint16_t address, uint16_t count) {
   build_request(address, count);
+
   send_request();
-  read_response();
+  while(!ready_to_parse){
+    busy_wait_us(1000);
+  }
+  parse_response();
+
   return parse_response();
 }
 
@@ -409,10 +416,15 @@ int main() {
   display_update();
   gpio_put(LED_PIN, 0);
 
+  char frame[256];
+
+  master.response.frame = frame;
+  master.response.length = 0;
+
   while(1) {
     gpio_put(LED_PIN, 1);
-    read_registers(REG_START, 1);
-    //update_page();
+    dcc50s_registers = read_registers(REG_START, 1);
+    update_page();
     gpio_put(LED_PIN, 0);
     sleep_ms(4000);
   }

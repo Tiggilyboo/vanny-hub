@@ -12,6 +12,7 @@ add_executable(vanny_hub
 
 # Libraries
 set(ENDIANNESS little)
+set(LIGHTMODBUS_BIG_ENDIAN)
 add_subdirectory(liblightmodbus)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/liblightmodbus/include liblightmodbus/src)
 
@@ -21,6 +22,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/display)
 # linking
 target_link_libraries(vanny_hub 
   pico_stdlib 
+  hardware_uart
   lightmodbus
   display
 )
