@@ -71,28 +71,25 @@ static PageContents_t current_page;
 static ModbusMaster master;
 static uint64_t btn_last_pressed;
 static uint16_t* dcc50s_registers;
+
+// clean this garbage hack
 static bool ready_to_parse = false;
+static uint16_t frame_length = 0;
+static char frame[255];
 
 const uint16_t char_delay = ((1 / (float)UART_BR) * 11.f * 1.5f) * 1000000; // 1.5t calc_delay_us(1.5f);
 const uint16_t frame_timeout =((1 / (float)UART_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
 
 void on_uart_rx() {
-  uint16_t length = 0;
-  char frame[255];
-
-  while(uart_is_readable(UART_PORT)) {
-    if(master.response.length > 254){
+  while(uart_is_readable_within_us(UART_PORT, frame_timeout)) {
+    if(frame_length >= 255) {
       printf("RX frame buffer overflow!\n");
       break;
     }
 
-    frame[length] = uart_getc(UART_PORT);
-    printf(" %02x", frame[length]);
-    length++;
+    frame[frame_length] = uart_getc(UART_PORT);
+    frame_length++;
   }
-
-  master.response.frame = frame;
-  master.response.length = length;
   ready_to_parse = true;
 }
 
@@ -109,7 +106,7 @@ static inline int uart_modbus_init() {
 
   uart_set_hw_flow(UART_PORT, false, false);
   uart_set_format(UART_PORT, UART_DBITS, UART_SBITS, UART_PARITY_NONE);
-  uart_set_fifo_enabled(UART_PORT, false);
+  uart_set_fifo_enabled(UART_PORT, true);
 
   int UART_IRQ = UART_PORT == uart0 ? UART0_IRQ : UART1_IRQ;
   irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
@@ -130,22 +127,15 @@ static inline void set_rts(bool on) {
   gpio_put(RTS_PIN, on ? 1 : 0);
 }
 
-static void flush_rx() {
-  char c;
-  printf("Flushing...");
-  while(uart_is_readable(UART_PORT)) {
-    c = uart_getc(UART_PORT);
-    printf(" %02x", c);
-  }
-  printf("\n");
-}
-
-
 void send_request() {
   int i;
 
   for(i = 0; i < master.request.length; i++){
     printf("%02x ", master.request.frame[i]);
+  }
+  // clear response
+  for(i = 0; i < 255; i++) {
+    frame[i] = 0;
   }
 
   set_rts(true);
@@ -158,14 +148,13 @@ void send_request() {
     busy_wait_us(char_delay);
   }
   set_rts(false);
-
-  flush_rx();
+  frame_length = 0;
   ready_to_parse = false;
 
   printf(" Sent.\n");
 }
 
-void build_request(uint16_t address, uint16_t count) { 
+inline void build_request(uint16_t address, uint16_t count) { 
   uint8_t resp;
   resp = modbusBuildRequest03(&master, SLAVE_ADDR_DCC50S, address, count);
   if(resp != MODBUS_OK) {
@@ -182,6 +171,15 @@ void build_request(uint16_t address, uint16_t count) {
 uint16_t* parse_response() {
   int i;
   ModbusError err;
+
+  printf("RX: ");
+  for(i = 0; i < frame_length; i++) {
+    printf("%02x ", frame[i]);
+  }
+  printf("\n");
+
+  master.response.frame = frame;
+  master.response.length = frame_length;
 
   err = modbusParseResponse(&master);
   if(err != MODBUS_OK) {
@@ -221,12 +219,11 @@ uint16_t* parse_response() {
 
 uint16_t* read_registers(uint16_t address, uint16_t count) {
   build_request(address, count);
-
   send_request();
+
   while(!ready_to_parse){
-    busy_wait_us(1000);
+    busy_wait_us(frame_timeout);
   }
-  parse_response();
 
   return parse_response();
 }
@@ -415,11 +412,6 @@ int main() {
   display_clear();
   display_update();
   gpio_put(LED_PIN, 0);
-
-  char frame[256];
-
-  master.response.frame = frame;
-  master.response.length = 0;
 
   while(1) {
     gpio_put(LED_PIN, 1);
