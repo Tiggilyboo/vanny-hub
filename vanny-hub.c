@@ -81,7 +81,7 @@ const uint16_t char_delay = ((1 / (float)UART_BR) * 11.f * 1.5f) * 1000000; // 1
 const uint16_t frame_timeout =((1 / (float)UART_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
 
 void on_uart_rx() {
-  while(uart_is_readable_within_us(UART_PORT, frame_timeout)) {
+  while(1) {
     if(frame_length >= 255) {
       printf("RX frame buffer overflow!\n");
       break;
@@ -89,8 +89,21 @@ void on_uart_rx() {
 
     frame[frame_length] = uart_getc(UART_PORT);
     frame_length++;
+
+    if(!uart_is_readable_within_us(UART_PORT, frame_timeout)) {
+      break;
+    }
   }
   ready_to_parse = true;
+}
+
+void flush_rx() {
+  printf("Flushing... ");
+
+  while(uart_is_readable(UART_PORT)) {
+    printf("%02x", uart_getc(UART_PORT)); 
+  }
+  printf("\n");
 }
 
 static inline int uart_modbus_init() {
@@ -139,9 +152,6 @@ void send_request() {
   }
 
   set_rts(true);
-
-  // pre-delay 5-10ms
-  busy_wait_us(5000);
 
   for(i = 0; i < master.request.length; i++){
     uart_putc_raw(UART_PORT, master.request.frame[i]);
@@ -218,11 +228,21 @@ uint16_t* parse_response() {
 }
 
 uint16_t* read_registers(uint16_t address, uint16_t count) {
+  uint32_t timeout;
+
   build_request(address, count);
+
+  flush_rx();
   send_request();
 
   while(!ready_to_parse){
     busy_wait_us(frame_timeout);
+    timeout += frame_timeout;
+
+    if(timeout > UART_RX_TIMEOUT) {
+      printf("Timeout.\n");
+      return NULL;
+    }
   }
 
   return parse_response();
@@ -415,7 +435,7 @@ int main() {
 
   while(1) {
     gpio_put(LED_PIN, 1);
-    dcc50s_registers = read_registers(REG_START, 1);
+    dcc50s_registers = read_registers(0, 16);
     update_page();
     gpio_put(LED_PIN, 0);
     sleep_ms(4000);
