@@ -1,9 +1,11 @@
 #include "vanny-hub.h"
 
+#define _OFFLINE_TESTING
+
 #define UART_PORT uart0
 #define UART_BR 9600
 #define UART_DBITS 8
-#define UART_SBITS 2
+#define UART_SBITS 1
 #define UART_PIN_TX 0
 #define UART_PIN_RX 1
 #define UART_RX_TIMEOUT 3000000
@@ -227,6 +229,7 @@ uint16_t* parse_response() {
   }
 }
 
+#ifndef _OFFLINE_TESTING
 uint16_t* read_registers(uint16_t address, uint16_t count) {
   uint32_t timeout;
 
@@ -247,6 +250,17 @@ uint16_t* read_registers(uint16_t address, uint16_t count) {
 
   return parse_response();
 }
+#else
+static uint16_t test_registers[REG_END] = {
+ 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+ 0xc32,0x00,0x2020,0x5242,0x4335,0x3044,0x00,0x00,0xee1,0x00,
+ 0x6f4,0x89c9,0xe064,0xc400,0xba7d,0x1cfa,0x6afe,0x2f4d,0xd7b9,0xbeb,
+ 0x3677,0xbc85
+};
+uint16_t* read_registers(uint16_t address, uint16_t count) {
+  return &test_registers;
+}
+#endif
 
 char* append_buf(char* s1, char* s2) {
   if(s1 == NULL || s2 == NULL)
