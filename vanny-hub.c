@@ -166,9 +166,9 @@ void send_request() {
   printf(" Sent.\n");
 }
 
-inline void build_request(uint16_t address, uint16_t count) { 
+inline void build_request(uint8_t unit, uint16_t address, uint16_t count) { 
   uint8_t resp;
-  resp = modbusBuildRequest03(&master, SLAVE_ADDR_DCC50S, address, count);
+  resp = modbusBuildRequest03(&master, unit, address, count);
   if(resp != MODBUS_OK) {
     printf("Unable to build request: %d\n", resp);
     switch (resp) {
@@ -230,13 +230,15 @@ uint16_t* parse_response() {
 }
 
 #ifndef _OFFLINE_TESTING
-uint16_t* read_registers(uint16_t address, uint16_t count) {
+
+uint16_t* read_registers(uint8_t unit, uint16_t address, uint16_t count) {
   uint32_t timeout;
 
-  build_request(address, count);
+  build_request(unit, address, count);
 
   flush_rx();
   send_request();
+  flush_rx();
 
   while(!ready_to_parse){
     busy_wait_us(frame_timeout);
@@ -250,16 +252,19 @@ uint16_t* read_registers(uint16_t address, uint16_t count) {
 
   return parse_response();
 }
-#else
-static uint16_t test_registers[REG_END] = {
- 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
- 0xc32,0x00,0x2020,0x5242,0x4335,0x3044,0x00,0x00,0xee1,0x00,
- 0x6f4,0x89c9,0xe064,0xc400,0xba7d,0x1cfa,0x6afe,0x2f4d,0xd7b9,0xbeb,
- 0x3677,0xbc85
+
+#else 
+
+static char dcc50s_test_frame[] = {
+   0x64,0x00,0x8e,0x00,0x00,0x14,0x13,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x91,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,
+   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 };
-uint16_t* read_registers(uint16_t address, uint16_t count) {
-  return &test_registers;
+uint16_t* read_registers(uint8_t unit, uint16_t address, uint16_t count) {
+  return &dcc50s_test_frame;
 }
+
 #endif
 
 char* append_buf(char* s1, char* s2) {
@@ -312,7 +317,7 @@ void get_charge_status(char* buffer, uint16_t state) {
 
 void get_temperatures(char* buffer, uint16_t state) {
   uint16_t internal_temp = (state >> 8);
-  uint16_t aux_temp = (state << 8) >> 8;
+  uint16_t aux_temp = (state & 0xFF);
 
   sprintf(buffer, "C %d*C B %d*C", internal_temp, aux_temp);
 }
@@ -447,12 +452,13 @@ int main() {
   display_update();
   gpio_put(LED_PIN, 0);
 
+  /*
   while(1) {
     gpio_put(LED_PIN, 1);
-    dcc50s_registers = read_registers(0, 16);
+    dcc50s_registers = read_registers(SLAVE_ADDR_DCC50S, REG_START, REG_END);
     update_page();
     gpio_put(LED_PIN, 0);
     sleep_ms(4000);
-  }
+  }*/
 }
 
