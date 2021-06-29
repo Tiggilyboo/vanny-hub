@@ -8,6 +8,7 @@ pico_sdk_init()
 # Source
 add_executable(vanny_hub
   vanny-hub.c
+  devices-modbus.c
 )
 
 # Libraries

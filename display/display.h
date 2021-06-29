@@ -12,3 +12,5 @@ char display_draw_text(char* text, uint16_t x, uint16_t y);
 char display_draw_title(char* title, uint16_t x, uint16_t y);
 void display_clear();
 void display_update();
+void display_turn_off();
+void display_turn_on();

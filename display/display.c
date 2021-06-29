@@ -12,14 +12,23 @@ static uint8_t display_buffer[(SSD1306_H * SSD1306_W) >> 3];
 static FontDef_t* font_normal = &FontNormal;
 static FontDef_t* font_title = &FontTitle;
 
+void display_turn_off() {
+  const uint8_t reg[2] = { 0x00, 0xAE };
+  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
+}
+void display_turn_on() {
+  const uint8_t reg[2] = { 0x00, 0xAF };
+  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
+}
+
 void ssd1306_init() {
   static uint8_t reg[2];
 
   printf("Initialising ssd1306...\n");
   sleep_ms(200);
 
-  reg[0] = 0x00; reg[1] = 0xAE; //display off
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
+  display_turn_off();
+
   reg[0] = 0x00; reg[1] = 0x20; //Set Memory Addressing Mode 
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
   reg[0] = 0x00; reg[1] = 0x10; //00,Horizontal Addressing Mode;01,Vertical Addressing Mode;10,Page Addressing Mode (RESET);11,Invalid
@@ -58,7 +67,6 @@ void ssd1306_init() {
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
   reg[0] = 0x00; reg[1] = 0xD9; //--set pre-charge period
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x22;
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
   reg[0] = 0x00; reg[1] = 0xDA; //--set com pins hardware configuration
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
@@ -72,8 +80,8 @@ void ssd1306_init() {
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
   reg[0] = 0x00; reg[1] = 0x14;
   i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xAF; //--turn on SSD1306 panel
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
+
+  display_turn_on();
 
   printf(" Done.\n");
 }
