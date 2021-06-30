@@ -9,21 +9,21 @@ static uint16_t frame_length = 0;
 static char frame[255];
 
 inline static void set_rts(bool on) {
-  gpio_put(RS485_RTS_PIN, on ? 1 : 0);
+  gpio_put(RS485_PIN_RTS, on ? 1 : 0);
 }
 
 int devices_modbus_init() {
-  gpio_init(RS485_RTS_PIN);
-  gpio_set_dir(RS485_RTS_PIN, GPIO_OUT);
+  gpio_init(RS485_PIN_RTS);
+  gpio_set_dir(RS485_PIN_RTS, GPIO_OUT);
   set_rts(false);
 
   return 0;
 }
 
-void on_uart_rx() {
+void on_rs485_rx() {
   while(1) {
     if(frame_length >= 255) {
-      printf("RX frame buffer overflow!\n");
+      printf("RS485 RX frame buffer overflow!\n");
       break;
     }
 
@@ -38,7 +38,25 @@ void on_uart_rx() {
   ready_to_parse = true;
 }
 
-int devices_modbus_uart_init() {
+void on_rs232_rx() {
+  while(1) {
+    if(frame_length >= 255) {
+      printf("RS232 RX frame buffer overflow\n");
+      break;
+    }
+
+    frame[frame_length] = uart_getc(RS232_PORT);
+    frame_length++;
+
+    if(!uart_is_readable_within_us(RS232_PORT, frame_timeout)) {
+      break;
+    }
+  }
+
+  ready_to_parse = true;
+}
+
+int devices_modbus485_uart_init() {
   uint16_t state;
 
   uart_init(RS485_PORT, RS485_BR);
@@ -47,41 +65,82 @@ int devices_modbus_uart_init() {
   gpio_set_function(RS485_PIN_RX, GPIO_FUNC_UART);
   
   state = uart_set_baudrate(RS485_PORT, RS485_BR);
-  printf("Actual baudrate set to: %d\n", state);
+  printf("RS485 - Actual baudrate set to: %d\n", state);
 
   uart_set_hw_flow(RS485_PORT, false, false);
   uart_set_format(RS485_PORT, RS485_DBITS, RS485_SBITS, UART_PARITY_NONE);
   uart_set_fifo_enabled(RS485_PORT, true);
 
   int RS485_IRQ = RS485_PORT == uart0 ? UART0_IRQ : UART1_IRQ;
-  irq_set_exclusive_handler(RS485_IRQ, on_uart_rx);
+  irq_set_exclusive_handler(RS485_IRQ, on_rs485_rx);
   irq_set_enabled(RS485_IRQ, true);
 
   uart_set_irq_enables(RS485_PORT, true, false);
+  return 0;
+}
+
+int devices_modbus232_uart_init() {
+  uint16_t state;
+
+  uart_init(RS232_PORT, RS232_BR);
+
+  gpio_set_function(RS232_PIN_TX, GPIO_FUNC_UART);
+  gpio_set_function(RS232_PIN_RX, GPIO_FUNC_UART);
+
+  state = uart_set_baudrate(RS232_PORT, RS232_BR);
+  printf("RS232 - Actual baudrate set to: %d\n", state);
+
+  uart_set_hw_flow(RS232_PORT, false, false);
+  uart_set_format(RS232_PORT, RS232_DBITS, RS232_SBITS, UART_PARITY_NONE);
+  uart_set_fifo_enabled(RS232_PORT, true);
+
+  int RS232_IRQ = RS232_PORT == uart0 ? UART0_IRQ : UART1_IRQ;
+  irq_set_exclusive_handler(RS232_IRQ, on_rs232_rx);
+  irq_set_enabled(RS232_IRQ, true);
+
+  uart_set_irq_enables(RS232_PORT, true, false);
+  return 0;
+}
+
+int devices_modbus_uart_init() {
+  uint16_t state;
+
+  state = devices_modbus485_uart_init();
+  if(state != 0)
+    return state;
+
+  state = devices_modbus232_uart_init();
 
   state = modbusMasterInit(&master);
 
   return state;
 }
 
-void send_request() {
+void send_request(uart_inst_t* inst) {
   int i;
 
   for(i = 0; i < master.request.length; i++){
     printf("%02x ", master.request.frame[i]);
   }
+
   // clear response
   for(i = 0; i < 255; i++) {
     frame[i] = 0;
   }
 
-  set_rts(true);
+  if(inst == RS485_PORT) {
+    set_rts(true);
+  }
 
   for(i = 0; i < master.request.length; i++){
-    uart_putc_raw(RS485_PORT, master.request.frame[i]);
+    uart_putc_raw(inst, master.request.frame[i]);
     busy_wait_us(char_delay);
   }
-  set_rts(false);
+
+  if(inst == RS485_PORT) {
+    set_rts(false);
+  }
+
   frame_length = 0;
   ready_to_parse = false;
 
@@ -151,31 +210,31 @@ uint16_t* parse_response() {
   }
 }
 
-inline static void flush_rx() {
-  printf("Flushing... ");
+inline static void flush_rx(uart_inst_t* inst) {
+  printf("Flushing uart%d... ", uart_get_index(inst));
 
-  while(uart_is_readable(RS485_PORT)) {
-    printf("%02x", uart_getc(RS485_PORT)); 
+  while(uart_is_readable(inst)) {
+    printf("%02x", uart_getc(inst)); 
   }
   printf("\n");
 }
 
 #ifndef _OFFLINE_TESTING
 
-uint16_t* devices_modbus_read_registers(uint8_t unit, uint16_t address, uint16_t count) {
+uint16_t* devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count) {
   uint32_t timeout;
 
   build_request(unit, address, count);
 
-  flush_rx();
-  send_request();
-  flush_rx();
+  flush_rx(inst);
+  send_request(inst);
+  flush_rx(inst);
 
   while(!ready_to_parse){
     busy_wait_us(frame_timeout);
     timeout += frame_timeout;
 
-    if(timeout > RS485_RX_TIMEOUT) {
+    if(timeout > UART_RX_TIMEOUT) {
       printf("Timeout.\n");
       return NULL;
     }

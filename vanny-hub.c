@@ -11,6 +11,8 @@
 #define RS485_LFP12S_ADDRESS_A  2
 #define RS485_LFP12S_ADDRESS_B  3
 
+#define RS232_RVR40_ADDRESS     1
+
 typedef enum {
   Overview,
   Altenator,
@@ -227,7 +229,8 @@ int main() {
 
   while(1) {
     gpio_put(LED_PIN, 1);
-    modbus_registers = devices_modbus_read_registers(RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END);
+    modbus_registers = devices_modbus_read_registers(
+        RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END);
     update_page();
     gpio_put(LED_PIN, 0);
     sleep_ms(2000);
