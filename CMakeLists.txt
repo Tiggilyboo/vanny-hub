@@ -23,6 +23,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/display)
 # linking
 target_link_libraries(vanny_hub 
   pico_stdlib 
+  pico_mem_ops
   hardware_uart
   lightmodbus
   display

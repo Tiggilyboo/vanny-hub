@@ -35,12 +35,12 @@
 
 // For RVR40_REG_CHARGE_STATE
 #define RVR40_CHARGE_DEACTIVE   0
-#define RVR40_CHARGE_ACTIVE     1
-#define RVR40_CHARGE_MPPT       2
-#define RVR40_CHARGE_EQ         3
-#define RVR40_CHARGE_BOOST      4
-#define RVR40_CHARGE_FLOAT      5
-#define RVR40_CHARGE_LIMITED    6
+#define RVR40_CHARGE_ACTIVE     (1 << 1)
+#define RVR40_CHARGE_MPPT       (1 << 2)
+#define RVR40_CHARGE_EQ         (1 << 3)
+#define RVR40_CHARGE_BOOST      (1 << 4)
+#define RVR40_CHARGE_FLOAT      (1 << 5)
+#define RVR40_CHARGE_LIMITED    (1 << 6)
 
 // For RVR40_REG_ERR2
 #define RVR40_ERR_REVERSE_POLARITY  (1 << 12)

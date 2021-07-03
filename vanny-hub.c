@@ -26,7 +26,8 @@ static uint64_t btn_last_pressed;
 static bool display_state;
 
 // Device State
-static uint16_t* modbus_registers;
+static uint16_t dcc50s_registers[DCC50S_REG_END+1];
+static uint16_t rvr40_registers[RVR40_REG_END+1];
 
 char* append_buf(char* s1, char* s2) {
   if(s1 == NULL || s2 == NULL)
@@ -46,15 +47,19 @@ char* append_buf(char* s1, char* s2) {
   return s1;
 }
 
-void dcc50s_get_charge_status(char* buffer, uint16_t state) {
+void get_charge_status(char* buffer, uint16_t dcc50s_state, uint16_t rvr40_state) {
   bool charging = false;
 
-  if ((state & DCC50S_CHARGE_STATE_SOLAR) > 0) {
+  if ((dcc50s_state & DCC50S_CHARGE_STATE_SOLAR) > 0) {
     append_buf(buffer, "Sol ");
     charging = true;
   }
-  if ((state & DCC50S_CHARGE_STATE_ALT) > 0) {
+  if ((dcc50s_state & DCC50S_CHARGE_STATE_ALT) > 0) {
     append_buf(buffer, "Alt ");
+    charging = true;
+  }
+  if ((rvr40_state & RVR40_CHARGE_ACTIVE) > 0) {
+    append_buf(buffer, "Sol ");
     charging = true;
   }
   if(!charging){
@@ -62,16 +67,20 @@ void dcc50s_get_charge_status(char* buffer, uint16_t state) {
     return;
   }
 
-  if ((state & DCC50S_CHARGE_STATE_EQ) > 0) {
+  if ((state & DCC50S_CHARGE_STATE_EQ) > 0
+      || (state & RVR40_CHARGE_EQ) > 0) {
     append_buf(buffer, "=");
   }
-  if ((state & DCC50S_CHARGE_STATE_BOOST) > 0) {
+  if ((state & DCC50S_CHARGE_STATE_BOOST) > 0
+      || (state & RVR40_CHARGE_BOOST) > 0) {
     append_buf(buffer, "++");
   }
-  if ((state & DCC50S_CHARGE_STATE_FLOAT) > 0) {
+  if ((state & DCC50S_CHARGE_STATE_FLOAT) > 0
+      || (state & RVR40_CHARGE_FLOAT) > 0) {
     append_buf(buffer, "~");
   }
-  if ((state & DCC50S_CHARGE_STATE_LIMITED) > 0) {
+  if ((state & DCC50S_CHARGE_STATE_LIMITED) > 0
+      || (state & RVR40_CHARGE_LIMITED) > 0) {
     append_buf(buffer, "+");
   }
 }
@@ -86,14 +95,14 @@ void dcc50s_get_temperatures(char* buffer, uint16_t state) {
 void update_page_overview() {
   char line[32];
 
-  uint16_t aux_soc = modbus_registers[DCC50S_REG_AUX_SOC];
-  float aux_v = (float)modbus_registers[DCC50S_REG_AUX_V] / 10.f;   // 0.1v
-  float aux_a = (float)modbus_registers[DCC50S_REG_AUX_A] / 100.f;  // 0.01a
+  uint16_t aux_soc = dcc50s_registers[DCC50S_REG_AUX_SOC];
+  float aux_v = (float)dcc50s_registers[DCC50S_REG_AUX_V] / 10.f;   // 0.1v
+  float aux_a = (float)dcc50s_registers[DCC50S_REG_AUX_A] / 100.f;  // 0.01a
 
-  uint16_t charge_state = modbus_registers[DCC50S_REG_CHARGE_STATE];
-  uint16_t temperature = modbus_registers[DCC50S_REG_TEMPERATURE];
+  uint16_t charge_state = dcc50s_registers[DCC50S_REG_CHARGE_STATE];
+  uint16_t temperature = dcc50s_registers[DCC50S_REG_TEMPERATURE];
 
-  dcc50s_get_charge_status((char*)&line, charge_state);
+  get_charge_status((char*)&line, charge_state);
   display_draw_title(line, 0, 0);
 
   sprintf((char*)&line, "%d%%", aux_soc); 
@@ -111,21 +120,36 @@ void update_page_overview() {
 void update_page_solar() {
   char line[32];
 
-  uint16_t sol_a = modbus_registers[DCC50S_REG_SOL_A];
-  uint16_t sol_v = modbus_registers[DCC50S_REG_SOL_V];
-  uint16_t sol_w = modbus_registers[DCC50S_REG_SOL_W];
+  /* DCC50S Solar if so inclined...
+  uint16_t sol_a = dcc50s_registers[DCC50S_REG_SOL_A];
+  uint16_t sol_v = dcc50s_registers[DCC50S_REG_SOL_V];
+  uint16_t sol_w = dcc50s_registers[DCC50S_REG_SOL_W];
+  */
+  uint16_t sol_a = rvr40_registers[RVR40_REG_SOLAR_A];
+  uint16_t sol_v = rvr40_registers[RVR40_REG_SOLAR_V];
+  uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
 
-  sprintf((char*)&line, "%dA %dV %dW", sol_a, sol_v, sol_w);
   display_draw_title("Solar", 0, 0);
-  display_draw_text(line, 32, 20);
+
+  sprintf((char*)&line, "+ %dA %dV %dW", sol_a, sol_v, sol_w);
+  display_draw_text(line, 32, 28);
+
+  sprintf((char*)&line, "Day (%d) + %d Ah, - %dAh", 
+      rvr40_registers[RVR40_REG_DAY_COUNT],
+      rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
+      rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]);
+  display_draw_text(line, 32, 36);
+
+  sprintf((char*)&line, "%d *C", rvr40_registers[RVR40_REG_TEMPERATURE]); 
+  display_draw_text(line, 42, 50);
 }
 
 void update_page_altenator() {
   char line[32];
 
-  uint16_t alt_a = modbus_registers[DCC50S_REG_ALT_A];
-  uint16_t alt_v = modbus_registers[DCC50S_REG_ALT_V];
-  uint16_t alt_w = modbus_registers[DCC50S_REG_ALT_W];
+  uint16_t alt_a = dcc50s_registers[DCC50S_REG_ALT_A];
+  uint16_t alt_v = dcc50s_registers[DCC50S_REG_ALT_V];
+  uint16_t alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
 
   sprintf((char*)&line, "%dA %dV %dW", alt_a, alt_v, alt_w);
   display_draw_title("Altenator", 0, 0);
@@ -133,7 +157,7 @@ void update_page_altenator() {
 }
 
 void update_page() {
-
+  
   display_clear();
 
   switch(current_page) {
@@ -203,7 +227,7 @@ int main() {
   gpio_init(BTN_PIN);
   gpio_set_dir(BTN_PIN, GPIO_IN);
   gpio_set_irq_enabled_with_callback(BTN_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &btn_handler);
-  current_page = Overview;
+  current_page = Solar; //Overview;
   btn_last_pressed = time_us_64();
 
   state = devices_modbus_init();
@@ -229,14 +253,22 @@ int main() {
 
   while(1) {
     gpio_put(LED_PIN, 1);
-    modbus_registers = devices_modbus_read_registers(
-        RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END);
-    update_page();
+    
+    devices_modbus_read_registers(
+        RS232_PORT, RS232_RVR40_ADDRESS, RVR40_REG_START, RVR40_REG_END, &rvr40_registers);
+
     gpio_put(LED_PIN, 0);
-    sleep_ms(2000);
+    sleep_ms(2500);
 
     gpio_put(LED_PIN, 1);
-
+ 
+    devices_modbus_read_registers(
+        RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, &dcc50s_registers);
+ 
+    gpio_put(LED_PIN, 0);
+    sleep_ms(2000);
+    
+    update_page();
   }
 }
 

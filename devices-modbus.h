@@ -8,6 +8,7 @@
 #include <lightmodbus/master.h>
 
 #include "devices-dcc50s.h"
+#include "devices-rvr40.h"
 
 #define UART_RX_TIMEOUT 3000000
 
@@ -30,4 +31,4 @@ static ModbusMaster master;
 
 int devices_modbus_init();
 int devices_modbus_uart_init();
-uint16_t* devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count);
+void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data);
