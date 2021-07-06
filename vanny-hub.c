@@ -67,20 +67,20 @@ void get_charge_status(char* buffer, uint16_t dcc50s_state, uint16_t rvr40_state
     return;
   }
 
-  if ((state & DCC50S_CHARGE_STATE_EQ) > 0
-      || (state & RVR40_CHARGE_EQ) > 0) {
+  if ((rvr40_state & DCC50S_CHARGE_STATE_EQ) > 0
+      || (rvr40_state & RVR40_CHARGE_EQ) > 0) {
     append_buf(buffer, "=");
   }
-  if ((state & DCC50S_CHARGE_STATE_BOOST) > 0
-      || (state & RVR40_CHARGE_BOOST) > 0) {
+  if ((rvr40_state & DCC50S_CHARGE_STATE_BOOST) > 0
+      || (rvr40_state & RVR40_CHARGE_BOOST) > 0) {
     append_buf(buffer, "++");
   }
-  if ((state & DCC50S_CHARGE_STATE_FLOAT) > 0
-      || (state & RVR40_CHARGE_FLOAT) > 0) {
+  if ((rvr40_state & DCC50S_CHARGE_STATE_FLOAT) > 0
+      || (rvr40_state & RVR40_CHARGE_FLOAT) > 0) {
     append_buf(buffer, "~");
   }
-  if ((state & DCC50S_CHARGE_STATE_LIMITED) > 0
-      || (state & RVR40_CHARGE_LIMITED) > 0) {
+  if ((rvr40_state & DCC50S_CHARGE_STATE_LIMITED) > 0
+      || (rvr40_state & RVR40_CHARGE_LIMITED) > 0) {
     append_buf(buffer, "+");
   }
 }
@@ -99,10 +99,12 @@ void update_page_overview() {
   float aux_v = (float)dcc50s_registers[DCC50S_REG_AUX_V] / 10.f;   // 0.1v
   float aux_a = (float)dcc50s_registers[DCC50S_REG_AUX_A] / 100.f;  // 0.01a
 
-  uint16_t charge_state = dcc50s_registers[DCC50S_REG_CHARGE_STATE];
+  uint16_t dcc_charge_state = dcc50s_registers[DCC50S_REG_CHARGE_STATE];
   uint16_t temperature = dcc50s_registers[DCC50S_REG_TEMPERATURE];
 
-  get_charge_status((char*)&line, charge_state);
+  uint16_t rvr_charge_state = rvr40_registers[RVR40_REG_CHARGE_STATE];
+
+  get_charge_status((char*)&line, dcc_charge_state, rvr_charge_state);
   display_draw_title(line, 0, 0);
 
   sprintf((char*)&line, "%d%%", aux_soc); 
@@ -193,6 +195,16 @@ void btn_handler(uint gpio, uint32_t events) {
   if (events & 0x2) { // High
   }
   if (events & 0x4) { // Fall
+  }
+  if (events & 0x8) { // Rise
+    // debounce
+    if(time_us_64() > btn_last_pressed + 350000) // 350ms
+    {
+      current_page = (++current_page) % PageContentsCount;
+      printf("Changed current page to %d\n", current_page);
+      update_page();
+    }
+
     time_handled = time_us_64(); 
     if(time_handled >= btn_last_pressed + 5000000) // 5s
     {
@@ -203,15 +215,6 @@ void btn_handler(uint gpio, uint32_t events) {
         display_turn_on();
       }
       display_state = !display_state;
-    }
-  }
-  if (events & 0x8) { // Rise
-    // debounce
-    if(time_us_64() > btn_last_pressed + 350000) // 350ms
-    {
-      current_page = (++current_page) % PageContentsCount;
-      printf("Changed current page to %d\n", current_page);
-      update_page();
     }
   }
 }
