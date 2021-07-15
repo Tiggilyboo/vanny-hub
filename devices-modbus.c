@@ -155,12 +155,6 @@ void parse_response(uint16_t* parsed_data) {
   int i;
   ModbusError err;
 
-  printf("RX (%d): ", frame_length);
-  for(i = 0; i < frame_length; i++) {
-    printf("%02x ", frame[i]);
-  }
-  printf("\n");
-
   master.response.frame = frame;
   master.response.length = frame_length;
 

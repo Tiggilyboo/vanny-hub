@@ -85,7 +85,7 @@ void get_charge_status(char* buffer, uint16_t dcc50s_state, uint16_t rvr40_state
   }
 }
 
-void dcc50s_get_temperatures(char* buffer, uint16_t state) {
+void get_temperatures(char* buffer, uint16_t state) {
   uint16_t internal_temp = (state >> 8);
   uint16_t aux_temp = (state & 0xFF);
 
@@ -115,7 +115,7 @@ void update_page_overview() {
   sprintf((char*)&line, "%.*fV", 1, aux_v);
   display_draw_text(line, 0, 36);
 
-  dcc50s_get_temperatures((char*)&line, temperature);
+  get_temperatures((char*)&line, temperature);
   display_draw_text(line, 0, 50);
 }
 
@@ -127,23 +127,29 @@ void update_page_solar() {
   uint16_t sol_v = dcc50s_registers[DCC50S_REG_SOL_V];
   uint16_t sol_w = dcc50s_registers[DCC50S_REG_SOL_W];
   */
-  uint16_t sol_a = rvr40_registers[RVR40_REG_SOLAR_A];
-  uint16_t sol_v = rvr40_registers[RVR40_REG_SOLAR_V];
+  float sol_v = (float)rvr40_registers[RVR40_REG_SOLAR_V] / 10.f;
+  float sol_a = (float)rvr40_registers[RVR40_REG_SOLAR_A] / 100.f;
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
 
   display_draw_title("Solar", 0, 0);
 
-  sprintf((char*)&line, "+ %dA %dV %dW", sol_a, sol_v, sol_w);
-  display_draw_text(line, 32, 28);
+  sprintf((char*)&line, "+ %.*fA", 1, sol_a);
+  display_draw_text(line, 0, 24);
 
-  sprintf((char*)&line, "Day (%d) + %d Ah, - %dAh", 
+  sprintf((char*)&line, "%.*fV", 1, sol_v);
+  display_draw_text(line, 48, 24);
+
+  sprintf((char*)&line, "%dW", sol_w);
+  display_draw_text(line, 86, 24);
+
+  sprintf((char*)&line, "Day +%dAh, -%dAh", 
       rvr40_registers[RVR40_REG_DAY_COUNT],
       rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
       rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]);
-  display_draw_text(line, 32, 36);
+  display_draw_text(line, 0, 36);
 
-  sprintf((char*)&line, "%d *C", rvr40_registers[RVR40_REG_TEMPERATURE]); 
-  display_draw_text(line, 42, 50);
+  get_temperatures((char*)&line, rvr40_registers[RVR40_REG_TEMPERATURE]);
+  display_draw_text(line, 0, 50);
 }
 
 void update_page_altenator() {
