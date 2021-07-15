@@ -3,10 +3,9 @@
 const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000; // 1.5t calc_delay_us(1.5f);
 const uint16_t frame_timeout =((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
 
-// clean this garbage hack
-static bool ready_to_parse = false;
-static uint16_t frame_length = 0;
 static char frame[255];
+static uint16_t frame_length = 0;
+static bool frame_ready = false;
 
 inline static void set_rts(bool on) {
   gpio_put(RS485_PIN_RTS, on ? 1 : 0);
@@ -20,34 +19,31 @@ int devices_modbus_init() {
   return 0;
 }
 
-void on_rs485_rx() {
-  while(1) {
+inline static void on_rx(uart_inst_t* inst) {
+  frame_length = 0;
+  while(uart_is_readable_within_us(inst, frame_timeout)) {
     if(frame_length >= 255) {
       printf("RS485 RX frame buffer overflow!\n");
-      return;
-    }
-
-    frame[frame_length] = uart_getc(RS485_PORT);
-    frame_length++;
-
-    if(!uart_is_readable_within_us(RS485_PORT, frame_timeout)){
       break;
     }
+
+    frame[frame_length] = uart_getc(inst);
+    frame_length++;
   }
 
-  ready_to_parse = true;
+  frame_ready = true;
 }
 
-void on_rs232_rx() {
-  if(frame_length >= 255) {
-    printf("RS232 RX frame buffer overflow\n");
-    return;
-  }
+static void on_rs485_rx() {
+  printf("Got rs485 irq\n");
+  on_rx(RS485_PORT);
+  printf("rs485 irq done\n");
+}
 
-  frame[frame_length] = uart_getc(RS232_PORT);
-  frame_length++;
-
-  ready_to_parse = true;
+static void on_rs232_rx() {
+  printf("Got rs232 irq\n");
+  on_rx(RS232_PORT);
+  printf("rs232 irq done\n");
 }
 
 int devices_modbus485_uart_init() {
@@ -119,10 +115,11 @@ void send_request(uart_inst_t* inst) {
     printf("%02x ", master.request.frame[i]);
   }
 
-  // clear response
+  frame_length = 0;
   for(i = 0; i < 255; i++) {
     frame[i] = 0;
   }
+  frame_ready = false;
 
   if(inst == RS485_PORT) {
     set_rts(true);
@@ -136,9 +133,6 @@ void send_request(uart_inst_t* inst) {
   if(inst == RS485_PORT) {
     set_rts(false);
   }
-
-  frame_length = 0;
-  ready_to_parse = false;
 
   printf(" Sent.\n");
 }
@@ -157,11 +151,11 @@ void build_request(uint8_t unit, uint16_t address, uint16_t count) {
   }
 }
 
-void parse_response(uint16_t* data) {
+void parse_response(uint16_t* parsed_data) {
   int i;
   ModbusError err;
 
-  printf("RX: ");
+  printf("RX (%d): ", frame_length);
   for(i = 0; i < frame_length; i++) {
     printf("%02x ", frame[i]);
   }
@@ -199,7 +193,7 @@ void parse_response(uint16_t* data) {
       }
       printf("\n");
       
-      memcpy(data, master.data.regs, master.data.length);
+      memcpy(parsed_data, master.data.regs, master.data.length);
     
     default:
       printf("Unable to parse response of type: %d", master.data.type);
@@ -219,7 +213,8 @@ inline static void flush_rx(uart_inst_t* inst) {
 #ifndef _OFFLINE_TESTING
 
 void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
-  uint32_t timeout;
+  uint16_t timeout = 0;
+  char response[255];
 
   build_request(unit, address, count);
 
@@ -230,16 +225,16 @@ void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t add
     flush_rx(inst);
   }
 
-  while(!ready_to_parse){
+  while(!frame_ready) {
     busy_wait_us(frame_timeout);
     timeout += frame_timeout;
 
-    if(timeout > UART_RX_TIMEOUT) {
-      printf("Timeout.\n");
+    if(timeout >= UART_RX_TIMEOUT) {
+      printf("Timeout\n");
       return;
     }
   }
-
+    
   parse_response(returned_data);
 }
 

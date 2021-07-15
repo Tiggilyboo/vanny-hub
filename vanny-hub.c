@@ -269,7 +269,7 @@ int main() {
         RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, &dcc50s_registers);
  
     gpio_put(LED_PIN, 0);
-    sleep_ms(2000);
+    sleep_ms(3000);
     
     update_page();
   }
