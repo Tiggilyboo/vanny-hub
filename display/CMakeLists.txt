@@ -5,5 +5,5 @@ add_library(display
 
 target_link_libraries(display
   pico_stdlib
-  hardware_i2c
+  hardware_spi
 )

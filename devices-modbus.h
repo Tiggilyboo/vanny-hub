@@ -24,8 +24,8 @@
 #define RS232_BR 9600
 #define RS232_DBITS 8
 #define RS232_SBITS 1
-#define RS232_PIN_TX 8
-#define RS232_PIN_RX 9
+#define RS232_PIN_TX 4
+#define RS232_PIN_RX 5
 
 static ModbusMaster master;
 

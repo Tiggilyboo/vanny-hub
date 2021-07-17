@@ -7,6 +7,8 @@ static char frame[255];
 static uint16_t frame_length = 0;
 static bool frame_ready = false;
 
+#define _OFFLINE_TESTING
+
 inline static void set_rts(bool on) {
   gpio_put(RS485_PIN_RTS, on ? 1 : 0);
 }
@@ -195,6 +197,9 @@ void parse_response(uint16_t* parsed_data) {
   }
 }
 
+
+#ifndef _OFFLINE_TESTING
+
 inline static void flush_rx(uart_inst_t* inst) {
   printf("Flushing uart%d... ", uart_get_index(inst));
 
@@ -203,8 +208,6 @@ inline static void flush_rx(uart_inst_t* inst) {
   }
   printf("\n");
 }
-
-#ifndef _OFFLINE_TESTING
 
 void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
   uint16_t timeout = 0;
@@ -240,8 +243,21 @@ static char dcc50s_test_frame[] = {
    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,
    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 };
-void devices_modbus_read_registers(uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
-  memcpy(returned_data, &dcc50s_test_frame, sizeof(dcc50s_test_frame) / sizeof(dcc50s_test_frame[0]));
+
+static char rvr40_test_frame[] = {
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
+
+  if(inst == RS485_PORT) {
+    memcpy(returned_data, &dcc50s_test_frame, sizeof(dcc50s_test_frame) / sizeof(dcc50s_test_frame[0]));
+  }
+  else if(inst == RS232_PORT) {
+    memcpy(returned_data, &rvr40_test_frame, sizeof(rvr40_test_frame) / sizeof(rvr40_test_frame[0]));
+  }
 }
 
 #endif

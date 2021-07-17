@@ -1,179 +1,217 @@
 #include "display.h"
 
-#define I2C_PORT    i2c1
-#define I2C_SLAVE   0x3c
-#define I2C_PIN_SDA 14
-#define I2C_PIN_SCL 15
-#define SSD1306_W   128
-#define SSD1306_H   64
+const uint32_t screen_w = (DISPLAY_W % 8 == 0)
+  ? (DISPLAY_W / 8)
+  : (DISPLAY_W / 8 + 1);
+const uint32_t screen_h = DISPLAY_H;
 
-uint16_t currentX, currentY;
-static uint8_t display_buffer[(SSD1306_H * SSD1306_W) >> 3];
+static uint8_t display_buffer_black[DISPLAY_W * DISPLAY_H];
+static uint8_t display_buffer_red[DISPLAY_W * DISPLAY_H];
+
 static FontDef_t* font_normal = &FontNormal;
 static FontDef_t* font_title = &FontTitle;
 
-void display_turn_off() {
-  const uint8_t reg[2] = { 0x00, 0xAE };
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
-}
-void display_turn_on() {
-  const uint8_t reg[2] = { 0x00, 0xAF };
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
-}
 
-void ssd1306_init() {
-  static uint8_t reg[2];
-
-  printf("Initialising ssd1306...\n");
+void display_reset() {
+  gpio_put(SPI_PIN_RST, 1);
   sleep_ms(200);
+  gpio_put(SPI_PIN_RST, 0);
+  sleep_ms(2);
+  gpio_put(SPI_PIN_RST, 1);
+  sleep_ms(200);
+}
 
-  display_turn_off();
+void display_send_command(uint8_t reg) {
+  gpio_put(SPI_PIN_DC, 0);
+  gpio_put(SPI_PIN_CS, 0);
+  spi_write_blocking(SPI_PORT, &reg, 1);
+  gpio_put(SPI_PIN_CS, 1);
+}
 
-  reg[0] = 0x00; reg[1] = 0x20; //Set Memory Addressing Mode 
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0x10; //00,Horizontal Addressing Mode;01,Vertical Addressing Mode;10,Page Addressing Mode (RESET);11,Invalid
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);
-  reg[0] = 0x00; reg[1] = 0xB0; //Set Page Start Address for Page Addressing Mode,0-7
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xC8; //Set COM Output Scan Direction
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0x00; //---set low column address
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0x10; //---set high column address
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x40;  //--set start line address
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0x81; //--set contrast control register
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0xFF;
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0xA1; //--set segment re-map 0 to 127
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xA6; //--set normal display
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xA8; //--set multiplex ratio(1 to 64)
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x3F; 
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xA4; //0xa4,Output follows RAM content;0xa5,Output ignores RAM content
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xD3; //-set display offset
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x00; //-not offset
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0xD5; //--set display clock divide ratio/oscillator frequency
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xF0; //--set divide ratio 
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xD9; //--set pre-charge period
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xDA; //--set com pins hardware configuration
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x12; 
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0xDB; //--set vcomh
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x20; //0x20,0.77xVcc
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false); 
-  reg[0] = 0x00; reg[1] = 0x8D; //--set DC-DC enable
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
-  reg[0] = 0x00; reg[1] = 0x14;
-  i2c_write_blocking(I2C_PORT, I2C_SLAVE, reg, 2, false);  
+void display_send_data(uint8_t data) {
+  gpio_put(SPI_PIN_DC, 1);
+  gpio_put(SPI_PIN_CS, 0);
+  spi_write_blocking(SPI_PORT, &data, 1);
+  gpio_put(SPI_PIN_CS, 1);
+}
+
+void display_read_busy() {
+  uint8_t busy;
+
+  printf("EPD busy...");
+  do {
+    display_send_command(EPD_GET_STATUS);
+    busy = gpio_get(SPI_PIN_BSY);
+    busy = !(busy & 0x01);
+  } 
+  while(busy);
+  printf("Done.\n");
+
+  sleep_ms(200);
+}
+
+void display_gpio_init() {
+  gpio_init(SPI_PIN_RST);
+  gpio_set_dir(SPI_PIN_RST, GPIO_OUT);
+
+  gpio_init(SPI_PIN_DC);
+  gpio_set_dir(SPI_PIN_DC, GPIO_OUT);
+
+  gpio_init(SPI_PIN_CS);
+  gpio_set_dir(SPI_PIN_CS, GPIO_OUT);
+
+  gpio_init(SPI_PIN_BSY);
+  gpio_set_dir(SPI_PIN_BSY, GPIO_IN);
+
+  gpio_put(SPI_PIN_CS, 1);
+}
+
+int display_init() {
+  display_gpio_init();
+
+  spi_init(SPI_PORT, SPI_BD); // 4000 * 1000??
+  gpio_set_function(SPI_PIN_CLK, GPIO_FUNC_SPI);
+  gpio_set_function(SPI_PIN_DIN, GPIO_FUNC_SPI);
+
+  printf("SPI Device initialised\n");
+
+  display_reset();
 
   display_turn_on();
 
-  printf(" Done.\n");
+  display_send_command(EPD_PANEL_SETTING);
+  // LUT from OTP, 128 x 296
+  display_send_data(0x0f);
+  // Temp sensor, boost, timing settings
+  display_send_data(0x89);
+
+  display_send_command(EPD_TCON_RESOLUTION);
+  display_send_data(0x80);
+  display_send_data(0x01);
+  display_send_data(0x28);
+
+  display_send_command(EPD_VCOM_AND_DATA_INTERVAL_SETTING);
+  // WB mode: VBDF 17 D7 VBDW 97 VBDB 57
+  // WBR mode: VBDF F7 VBDW 77 VBDB 37 VBDR B7
+  display_send_data(0x77);
+
+  printf("EPD initialised.\n");
+
+  return 0;
 }
 
-inline void display_draw_pixel(uint16_t x, uint16_t y, bool colour) {
-  if((x >= SSD1306_W) || y >= SSD1306_H) {
-    return;
+void display_draw_pixel(uint16_t x, uint16_t y, colour_t colour) {
+  switch(colour.pigment) {
+    case Black:
+      display_buffer_black[x + (screen_w * y)] = colour.depth;
+      break;
+    case Red:
+    case Yellow:
+      display_buffer_red[x + (screen_w * y)] = colour.depth;
+      break;
+    default:
+      printf("No pigment selected for pixel (%d, %d)\n", x, y);
   }
-  if(colour) {
-    display_buffer[x+(y / 8) * SSD1306_W] |= 1 << (y % 8);
-  } else {
-    display_buffer[x+(y / 8) * SSD1306_W] &= ~(1 << (y % 8));
-  }
 }
 
-void display_clear() {
-  memset(display_buffer, 0x00, sizeof(display_buffer));
-}
-
-inline char display_draw_char(char ch, FontDef_t* font) {
+char display_draw_char(uint16_t* x, uint16_t* y, char ch, FontDef_t* font, colour_t colour) {
   uint32_t i, b, j;
-
-  if((SSD1306_W <= (currentX + font->font_width))
-      || (SSD1306_H <= (currentY + font->font_height))) {
-    return 0;
-  }
 
   for(i = 0; i < font->font_height; i++) {
     b = font->data[(ch-32) * font->font_height + i];
     for(j = 0; j < font->font_width; j++) {
       if((b<<j & 0x8000)) {
-        display_draw_pixel(currentX + j, currentY + i, 1);
+        display_draw_pixel(*x + j, *y + i, colour);
       }
     }
   }
 
-  currentX += font->font_width;
+  *x += font->font_width;
 
   return ch;
 }
 
-inline char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y) {
-  currentX = x;
-  currentY = y;
+inline char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y, colour_t colour) {
+  printf("Drawing: ");
 
   while(*text) {
-    if(display_draw_char(*text, font) != *text) {
+    if(display_draw_char(&x, &y, *text, font, colour) != *text) {
       return *text;
     }
+    printf("%c", *text);
 
     text++;
   }
+
+  printf("\n");
 }
 
-char display_draw_text(char* text, uint16_t x, uint16_t y) {
-  display_draw_font(text, font_normal, x, y);
+char display_draw_text(char* text, uint16_t x, uint16_t y, colour_t colour) {
+  display_draw_font(text, font_normal, x, y, colour);
 }
-char display_draw_title(char* title, uint16_t x, uint16_t y) {
-  display_draw_font(title, font_title, x, y);
+char display_draw_title(char* text, uint16_t x, uint16_t y, colour_t colour) {
+  display_draw_font(text, font_title, x, y, colour);
 }
 
-void display_update() {
-  static uint8_t buff[2];
-  static uint8_t buffer[150];
-
-  for(uint8_t m=0; m<8; m++) {
-    buff[0] = 0x00; 
-    buff[1] = 0xB0+m;
-    i2c_write_blocking(I2C_PORT, I2C_SLAVE, buff, 2, false); 
-    buff[1] = 0x00;
-    i2c_write_blocking(I2C_PORT, I2C_SLAVE, buff, 2, false); 
-    buff[1] = 0x10;
-    i2c_write_blocking(I2C_PORT, I2C_SLAVE, buff, 2, false); 
-    
-    buffer[0] = 0x40;
-    for(uint8_t i = 0; i < SSD1306_W; i++) {
-        buffer[i+1] = (uint8_t) *(display_buffer+(SSD1306_W * m) + i);
+inline void display_fill(const uint8_t command, const uint8_t value) {
+  display_send_command(command);
+  for(uint32_t y = 0; y < screen_h; y++) {
+    for(uint32_t x = 0; x < screen_w; x++) {
+      display_send_data(value);
     }
-    i2c_write_blocking(I2C_PORT, I2C_SLAVE, buffer, SSD1306_W + 1, false);
   }
 }
 
-int display_init() {
-  printf("Initialising i2c...");
-  i2c_init(I2C_PORT, 100000);
+void display_clear() {
+  for(uint32_t y = 0; y < screen_h; y++) {
+    for(uint32_t x = 0; x < screen_w; x++) {
+      display_buffer_black[x + (y * screen_w)] = 0xff;
+      display_buffer_red[x + (y * screen_w)] = 0xff;
+    }
+  }
 
-  gpio_set_function(I2C_PIN_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(I2C_PIN_SCL, GPIO_FUNC_I2C);
-  gpio_pull_up(I2C_PIN_SDA);
-  gpio_pull_up(I2C_PIN_SCL);
+  display_fill(EPD_DATA_START_TRANSMISSION_1, 0xff);
+  display_fill(EPD_DATA_START_TRANSMISSION_2, 0xff);
 
-  currentX = currentY = 0;
-
-  ssd1306_init(I2C_SLAVE);
+  display_send_command(EPD_DISPLAY_REFRESH);
+  display_read_busy();
 }
+
+void display_update() {
+  // refresh black
+  display_send_command(EPD_DATA_START_TRANSMISSION_1);
+  for(uint32_t y = 0; y < screen_h; y++) {
+    for(uint32_t x = 0; x < screen_w; x++) {
+      display_send_data(display_buffer_black[x + (y * screen_w)]);
+    }
+  }
+  display_send_command(EPD_PARTIAL_OUT);
+
+  // refresh red
+  display_send_command(EPD_DATA_START_TRANSMISSION_2);
+  for(uint32_t y = 0; y < screen_h; y++) {
+    for(uint32_t x = 0; x < screen_w; x++) {
+      display_send_data(display_buffer_red[x + (y * screen_w)]);
+    }
+  }
+  display_send_command(EPD_PARTIAL_OUT);
+
+  display_send_command(EPD_DISPLAY_REFRESH);
+  display_read_busy();
+}
+
+void display_turn_off() {
+  display_send_command(EPD_POWER_OFF);
+  display_read_busy();
+  display_send_command(EPD_DEEP_SLEEP);
+  display_send_data(EPD_CHECK_CODE);
+  sleep_ms(2000);
+  printf("Display off and sleeping!\n");
+}
+
+void display_turn_on() {
+  display_send_command(EPD_POWER_ON);
+  display_read_busy();
+  printf("Display on!\n");
+}
+
