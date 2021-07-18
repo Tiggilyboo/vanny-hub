@@ -5,5 +5,6 @@ add_library(display
 
 target_link_libraries(display
   pico_stdlib
+  pico_mem_ops
   hardware_spi
 )

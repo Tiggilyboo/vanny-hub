@@ -7,17 +7,13 @@
 #define LED_PIN 25
 #define BTN_PIN 21
 
+#define EPD_FULL_REFRESH_AFTER  5
+
 #define RS485_DCC50S_ADDRESS    1
 #define RS485_LFP12S_ADDRESS_A  2
 #define RS485_LFP12S_ADDRESS_B  3
 
 #define RS232_RVR40_ADDRESS     1
-
-static colour_t style_faint = { Black, 0x99 };
-static colour_t style_default = { Black, 0x33 };
-static colour_t style_bold = { Black, 0x00 };
-static colour_t style_alert = { Red, 0x00 };
-static colour_t style_warning = { Red, 0x33 };
 
 typedef enum {
   Overview,
@@ -30,6 +26,7 @@ typedef enum {
 static PageContents_t current_page;
 static uint64_t btn_last_pressed;
 static bool display_state;
+static uint8_t display_refresh_count;
 
 // Device State
 static uint16_t dcc50s_registers[DCC50S_REG_END+1];
@@ -114,19 +111,19 @@ void update_page_overview() {
   uint16_t rvr_charge_state = rvr40_registers[RVR40_REG_CHARGE_STATE];
 
   get_charge_status((char*)&line, dcc_charge_state, rvr_charge_state);
-  display_draw_title(line, 0, 0, style_default);
+  display_draw_title(line, 0, 0, Black);
 
   sprintf((char*)&line, "%d%%", aux_soc); 
-  display_draw_title(line, 128 - 56, 28, style_default);
+  display_draw_title(line, 128 - 56, 28, Black);
 
   // Also add any solar amperage
   sprintf((char*)&line, "+%.*fA", 2, aux_a + sol_a);
-  display_draw_text(line, 0, 24, style_default);
+  display_draw_text(line, 0, 24, Black);
   sprintf((char*)&line, "%.*fV", 1, aux_v);
-  display_draw_text(line, 0, 36, style_default);
+  display_draw_text(line, 0, 36, Black);
 
   get_temperatures((char*)&line, temperature);
-  display_draw_text(line, 0, 50, style_default);
+  display_draw_text(line, 0, 50, Black);
 }
 
 void update_page_solar() {
@@ -141,24 +138,24 @@ void update_page_solar() {
   float sol_a = (float)rvr40_registers[RVR40_REG_SOLAR_A] / 100.f;
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
 
-  display_draw_title("Solar", 0, 0, style_default);
+  display_draw_title("Solar", 0, 0, Black);
 
   sprintf((char*)&line, "+ %.*fA", 1, sol_a);
-  display_draw_text(line, 0, 24, style_default);
+  display_draw_text(line, 0, 24, Black);
 
   sprintf((char*)&line, "%.*fV", 1, sol_v);
-  display_draw_text(line, 48, 24, style_default);
+  display_draw_text(line, 48, 24, Black);
 
   sprintf((char*)&line, "%dW", sol_w);
-  display_draw_text(line, 86, 24, style_default);
+  display_draw_text(line, 86, 24, Black);
 
   sprintf((char*)&line, "Day +%dAh, -%dAh", 
       rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
       rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]);
-  display_draw_text(line, 0, 36, style_default);
+  display_draw_text(line, 0, 36, Black);
 
   get_temperatures((char*)&line, rvr40_registers[RVR40_REG_TEMPERATURE]);
-  display_draw_text(line, 0, 50, style_default);
+  display_draw_text(line, 0, 50, Black);
 }
 
 void update_page_altenator() {
@@ -169,12 +166,22 @@ void update_page_altenator() {
   uint16_t alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
 
   sprintf((char*)&line, "%dA %dV %dW", alt_a, alt_v, alt_w);
-  display_draw_title("Altenator", 0, 0, style_default);
-  display_draw_text(line, 32, 20, style_default);
+  display_draw_title("Altenator", 0, 0, Black);
+
+  display_draw_text(line, 32, 20, Black);
 }
 
 void update_page() {
-  
+  // clear all local buffers 
+  display_fill_buffers(0xff);
+
+  // full refresh after x partials
+  if(++display_refresh_count > EPD_FULL_REFRESH_AFTER) {
+    printf("Full refresh: ");
+    display_refresh_count = 0;
+    display_clear();
+  }
+
   switch(current_page) {
     case Overview: 
       update_page_overview();
@@ -189,7 +196,7 @@ void update_page() {
       break;
 
     default:
-      display_draw_title("404", 0, 0, style_alert);
+      display_draw_title("404", 0, 0, Black);
       break;
   }
 
@@ -202,13 +209,14 @@ void btn_handler(uint gpio, uint32_t events) {
 #ifdef _VERBOSE
   printf("Btn @ %d is now %02x\n", gpio, events);
 #endif
-
+/*
   if (events & 0x1) { // Low
   }
   if (events & 0x2) { // High
   }
   if (events & 0x4) { // Fall
   }
+*/
   if (events & 0x8) { // Rise
     // debounce
     if(time_us_64() > btn_last_pressed + 350000) // 350ms
@@ -263,20 +271,19 @@ int main() {
   }
 
   display_init();
+  
   display_clear();
-  sleep_ms(500);
+  sleep_ms(3000);
   gpio_put(LED_PIN, 0);
 
   while(1) {
-    /*
     gpio_put(LED_PIN, 1);
-    
+
     devices_modbus_read_registers(
         RS232_PORT, RS232_RVR40_ADDRESS, RVR40_REG_START, RVR40_REG_END, &rvr40_registers);
 
     gpio_put(LED_PIN, 0);
-    sleep_ms(2500);
-    */
+    sleep_ms(3000);
 
     gpio_put(LED_PIN, 1);
  
@@ -284,10 +291,11 @@ int main() {
       RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, &dcc50s_registers);
     
     update_page();
-
+    
     gpio_put(LED_PIN, 0);
-    sleep_ms(3000);
-   
+    sleep_ms(5000);
   }
+  
+  gpio_put(LED_PIN, 0);
 }
 

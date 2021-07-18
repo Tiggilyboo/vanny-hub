@@ -4,7 +4,7 @@ typedef struct FontDef
 {
     uint8_t font_width;
     uint8_t font_height;
-    const uint16_t *data;
+    const uint8_t *data;
 } FontDef_t;
 
 typedef struct FontSize
