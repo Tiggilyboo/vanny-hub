@@ -15,20 +15,25 @@ typedef enum {
 } colour_t;
 
 typedef struct {
-  uint8_t x;
-  uint8_t y;
-  uint8_t w;
-  uint8_t h;
+  uint16_t x;
+  uint16_t y;
+  uint16_t w;
+  uint16_t h;
 } coord_t;
 
 int display_init();
+void display_set_buffer(const uint8_t* buffer);
+void display_send_buffer(const uint8_t* buffer, int w, int h, int dtm);
+void display_draw_partial(const uint8_t* black, const uint8_t* red, const coord_t region);
 void display_draw_pixel(uint16_t x, uint16_t y, colour_t colour);
+void display_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+void display_draw_rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+void display_draw_fill(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 char display_draw_text(char* text, uint16_t x, uint16_t y, colour_t colour);
 char display_draw_title(char* title, uint16_t x, uint16_t y, colour_t colour);
+void display_fill_colour(colour_t colour);
 void display_clear();
-void display_update();
-void display_partial(const uint8_t* buffer, coord_t region, int dtm);
-void display_fill_buffers(colour_t colour);
-void display_turn_off();
-void display_turn_on();
+void display_refresh(bool wait_busy);
+void display_sleep();
+void display_wake();
 

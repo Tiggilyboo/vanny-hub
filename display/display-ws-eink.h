@@ -15,6 +15,8 @@
 
 #define DISPLAY_W     128
 #define DISPLAY_H     296
+#define SCREEN_W      (DISPLAY_W / 8)
+#define SCREEN_H      DISPLAY_H
 
 #define EPD_PANEL_SETTING                               0x00
 #define EPD_POWER_SETTING                               0x01

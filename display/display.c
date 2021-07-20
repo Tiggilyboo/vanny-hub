@@ -3,19 +3,16 @@
 #define SCREEN_W (DISPLAY_W / 8)
 #define SCREEN_H DISPLAY_H
 
-static uint8_t display_buffer_black[(DISPLAY_W / 8) * DISPLAY_H];
-static uint8_t display_buffer_red[(DISPLAY_W / 8) * DISPLAY_H];
+static uint8_t* display_buffer;
 
 static FontDef_t* font_normal = &FontNormal;
 static FontDef_t* font_title = &FontTitle;
 
 void display_reset() {
-  gpio_put(SPI_PIN_RST, 1);
-  sleep_ms(200);
   gpio_put(SPI_PIN_RST, 0);
-  sleep_ms(2);
+  busy_wait_ms(10);
   gpio_put(SPI_PIN_RST, 1);
-  sleep_ms(200);
+  busy_wait_ms(10);
 }
 
 void display_send_command(uint8_t reg) {
@@ -44,7 +41,7 @@ void display_read_busy() {
   while(busy);
   printf("Done.\n");
 
-  sleep_ms(200);
+  busy_wait_ms(200);
 }
 
 void display_gpio_init() {
@@ -72,39 +69,22 @@ int display_init() {
 
   printf("SPI Device initialised\n");
 
-  display_reset();
-
-  display_turn_on();
-
-  display_send_command(EPD_PANEL_SETTING);
-  // LUT from OTP, 128 x 296
-  display_send_data(0x0f); // B/W = 0x1f
-  // LUT from REG
-  //display_send_data(0x2f); // B/W = 0x3f
-
-  // Temp sensor, boost, timing settings
-  display_send_data(0x89);
-
-  // 3A = 100hz, 29 = 150hz, 39 = 200hz, 31 = 171Hz, 3C = 50Hz, 0B = 10Hz
-  //display_send_command(EPD_PLL_CONTROL);
-  //display_send_data(0x3C);
-
-  display_send_command(EPD_TCON_RESOLUTION);
-  display_send_data(0x80);
-  display_send_data(0x01);
-  display_send_data(0x28);
-
-  display_send_command(EPD_VCOM_AND_DATA_INTERVAL_SETTING);
-  // WB mode: VBDF 17 D7 VBDW 97 VBDB 57
-  // WBR mode: VBDF F7 VBDW 77 VBDB 37 VBDR B7
-  display_send_data(0x77);
+  display_wake();
 
   printf("EPD initialised.\n");
 
   return 0;
 }
 
-void display_draw_pixel(uint16_t x, uint16_t y, colour_t colour) {
+void display_set_buffer(const uint8_t* buffer) {
+  display_buffer = buffer;  
+}
+
+void display_draw_pixel(uint16_t x_start, uint16_t y_start, colour_t colour) {
+  // translate 270 degrees
+  const uint16_t x = y_start;
+  const uint16_t y = DISPLAY_H - x_start - 1;
+
   if(x > DISPLAY_W || y > DISPLAY_H) {
     printf("Pixel outside bounds (%d, %d)\n", x, y);
     return;
@@ -115,24 +95,80 @@ void display_draw_pixel(uint16_t x, uint16_t y, colour_t colour) {
 
   switch(colour) {
     case Black:
-      data = display_buffer_black[addr];
-      display_buffer_black[addr] = data & ~(0x80 >> (x % 8));
-      break;
     case Red:
     case Yellow:
-      data = display_buffer_red[addr];
-      display_buffer_red[addr] = data & ~(0x80 >> (x % 8));
+      data = display_buffer[addr];
+      display_buffer[addr] = data & ~(0x80 >> (x % 8));
       break;
     case White:
-      data = display_buffer_red[addr];
-      display_buffer_red[addr] = data | (0x80 >> (x % 8));
-
-      data = display_buffer_black[addr];
-      display_buffer_black[addr] = data | (0x80 >> (x % 8));
+      data = display_buffer[addr];
+      display_buffer[addr] = data | (0x80 >> (x % 8));
       break;
     default:
       printf("No colour selected for pixel (%d, %d)\n", x, y);
       break;
+  }
+}
+void display_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
+  const int16_t steep = y1 - y0 > x1 - x0;
+  if(steep) {
+    uint16_t t = x0;
+    x0 = y0;
+    y0 = t;
+    
+    t = x1;
+    x1 = y1;
+    y1 = t;
+    
+    if (x0 > x1) {
+      t = x0;
+      x0 = x1;
+      x1 = t;
+      
+      t = y0;
+      y0 = y1;
+      y1 = t;
+    }
+  }
+
+  const int dx = x1 - x0;
+  const int dy = y1 - y0;
+  const int16_t ystep = (y0 < y1) ? 1 : -1;
+
+  int16_t err = dx / 2;
+  
+  printf("Drawing line: (%d, %d, %d, %d) ", x0, y0, x1, y1);
+  printf("[%d, %d]\n", dx, dy);
+  for(; x0 <= x1; x0++) {
+    if(steep) {
+      display_draw_pixel(y0, x0, Black);
+    } else {
+      display_draw_pixel(x0, y0, Black);
+    }
+    err -= dy;
+    if(err < 0) {
+      y0 += ystep;
+      err += dx;
+    }
+  }
+}
+
+void display_draw_rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
+  // Top left -> Top Right
+  display_draw_line(x1, y1, x2, y1);
+  // Bottom left -> Bottom Right
+  display_draw_line(x1, y2, x2, y2);
+  // Top left -> Bottom left
+  display_draw_line(x1, y1, x1, y2);
+  // Top right -> Bottom right
+  display_draw_line(x2, y1, x2, y2);
+}
+
+void display_draw_fill(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
+  for(uint16_t x = x1; x < x2; x++) {
+    for(uint16_t y = y1; y < y2; y++) {
+      display_draw_pixel(x, y, Black);
+    }
   }
 }
 
@@ -190,7 +226,7 @@ char display_draw_title(char* text, uint16_t x, uint16_t y, colour_t colour) {
   display_draw_font(text, font_title, x, y, colour);
 }
 
-void display_send_fill(const uint8_t command, const uint8_t value) {
+inline void display_send_fill(const uint8_t command, const uint8_t value) {
   display_send_command(command);
   for(int j = 0; j < SCREEN_H; j++) {
     for(int i = 0; i < SCREEN_W; i++) {
@@ -202,86 +238,87 @@ void display_send_fill(const uint8_t command, const uint8_t value) {
 void display_clear() {
   display_send_fill(EPD_DATA_START_TRANSMISSION_1, 0xff);
   display_send_fill(EPD_DATA_START_TRANSMISSION_2, 0xff);
-  display_send_command(EPD_DISPLAY_REFRESH);
-  display_read_busy();
+  display_refresh(true);
 }
 
-void display_fill_buffers(uint8_t colour_value) {
-  for(uint32_t y = 0; y < SCREEN_H; y++) {
-    for(uint32_t x = 0; x < SCREEN_W; x++) {
-      uint32_t addr = x + y * SCREEN_W;
-      display_buffer_black[addr] = colour_value;
-      display_buffer_red[addr] = colour_value;
+void display_fill_colour(colour_t colour) {
+  uint8_t colour_value = (colour == White) ? 0xff : 0x00;
+
+  for(uint16_t i = 0; i < SCREEN_W * SCREEN_H; i++) {
+    display_buffer[i] = colour_value;
+  }
+}
+
+void display_send_buffer(const uint8_t* buffer, int w, int h, int dtm) {
+  uint8_t cmd = (dtm == 1) ? EPD_DATA_START_TRANSMISSION_1 : EPD_DATA_START_TRANSMISSION_2;
+  display_send_command(cmd);
+  for(uint32_t y = 0; y < h; y++) {
+    for(uint32_t x = 0; x < w; x++) {
+      display_send_data(buffer[x + y * w]);
     }
   }
 }
 
-void display_update() {
-  // refresh black
-  display_send_command(EPD_DATA_START_TRANSMISSION_1);
-  for(uint32_t y = 0; y < SCREEN_H; y++) {
-    for(uint32_t x = 0; x < SCREEN_W; x++) {
-      display_send_data(display_buffer_black[x + y * SCREEN_W]);
-    }
-  }
-  display_send_command(EPD_PARTIAL_OUT);
+uint16_t display_set_partial_window(coord_t region) {
+  region.x &= 0xfff8; // byte boundary
+  region.w = (region.w - 1) | 0x0007; // byte boundary
 
-  // refresh red
-  display_send_command(EPD_DATA_START_TRANSMISSION_2);
-  for(uint32_t y = 0; y < SCREEN_H; y++) {
-    for(uint32_t x = 0; x < SCREEN_W; x++) {
-      display_send_data(display_buffer_red[x + y * SCREEN_W]);
-    }
-  }
-  display_send_command(EPD_PARTIAL_OUT);
-
-  display_send_command(EPD_DISPLAY_REFRESH);
-  display_read_busy();
-}
-
-
-void display_partial(const uint8_t* buffer, coord_t region, int dtm) {
-  display_send_command(EPD_PARTIAL_IN);
   display_send_command(EPD_PARTIAL_WINDOW);
-  display_send_data(region.x >> 8);
-  display_send_data(region.x & 0xf8); // x multiple of 8, last 3 bit ignored
-  display_send_data(((region.x & 0xf8) + region.w - 1) >> 8);
-  display_send_data(((region.x & 0xf8) + region.w - 1) | 0x07);
-  display_send_data(region.y >> 8);
-  display_send_data(region.y & 0xff);
-  display_send_data((region.y + region.h - 1) >> 8);
-  display_send_data((region.y + region.h - 1) & 0xff);
-  display_send_data(0x01);  // gate scan inside and outside partial window
-  sleep_ms(2);
+  display_send_data(region.x % 256);
+  display_send_data(region.w % 256);
+  display_send_data(region.y / 256);
+  display_send_data(region.y % 256);
+  display_send_data(region.h / 256);
+  display_send_data(region.h % 256);
+  display_send_data(0x01);
 
-  display_send_command((dtm == 1) ? EPD_DATA_START_TRANSMISSION_1 : EPD_DATA_START_TRANSMISSION_2);
-  if(buffer != NULL) {
-    for(int i = 0; i < region.w / 8 * region.h; i++) {
-      display_send_data(buffer[i]);
-    }
-  } else {
-    for(int i = 0; i < region.w / 8 * region.h; i++) {
-      display_send_data(0x00);
-    }
-  }
-
-  display_send_command(EPD_PARTIAL_OUT);
-
-  display_send_command(EPD_DISPLAY_REFRESH);
+  // return number of bytes to transfer per line
+  return (7 + region.w - region.x) / 8;
 }
 
-void display_turn_off() {
+void display_draw_partial(const uint8_t* black_buffer, const uint8_t* red_buffer, const coord_t region) {
+  display_send_command(EPD_PARTIAL_IN);
+  display_set_partial_window(region);
+
+  display_send_buffer(black_buffer, SCREEN_W, SCREEN_H, 1);
+  display_send_buffer(red_buffer, SCREEN_W, SCREEN_H, 2);
+  display_send_command(EPD_PARTIAL_OUT);
+
+  display_refresh(true);
+  busy_wait_ms(500);
+}
+
+void display_refresh(bool wait_busy) {
+  display_send_command(EPD_DISPLAY_REFRESH);
+  if(wait_busy)
+    display_read_busy();
+}
+
+void display_sleep() {
   display_send_command(EPD_POWER_OFF);
   display_read_busy();
   display_send_command(EPD_DEEP_SLEEP);
   display_send_data(EPD_CHECK_CODE);
-  sleep_ms(2000);
   printf("Display off and sleeping!\n");
 }
 
-void display_turn_on() {
+void display_wake() {
+  display_reset();
+  display_send_command(EPD_BOOSTER_SOFT_START);
+  display_send_data(0x17);
+  display_send_data(0x17);
+  display_send_data(0x17);
   display_send_command(EPD_POWER_ON);
-  display_read_busy();
-  printf("Display on!\n");
+  display_send_command(EPD_PANEL_SETTING);
+  display_send_data(0x0f);
+  display_send_command(EPD_PLL_CONTROL);
+  display_send_data(0x3C);
+  display_send_command(EPD_VCOM_AND_DATA_INTERVAL_SETTING);
+  display_send_data(0x77);
+  display_send_command(EPD_TCON_RESOLUTION);
+  display_send_data(0x80);
+  display_send_data(0x01);
+  display_send_data(0x28);
+  printf("Display awake!\n");
 }
 
