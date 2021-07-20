@@ -178,12 +178,63 @@ void update_page_altenator() {
 }
 
 void update_page_ui() {
-  const uint16_t half_x = DISPLAY_H / 2;
-  const uint16_t half_y = DISPLAY_W / 2;
   const uint16_t third_x = DISPLAY_H / 3;
   const uint16_t third_y = DISPLAY_W / 3;
+  char line[32];
+  
+  // Draw battery
+  float percent = (float)dcc50s_registers[DCC50S_REG_AUX_SOC] / 100.f;
+  uint16_t battery_width = (uint16_t)(((DISPLAY_H - 20) - (third_x * 2 - 2)) * percent);
 
   display_draw_rect(third_x * 2, third_y, DISPLAY_H - 20, third_y * 2);
+  display_draw_fill(third_x * 2, third_y + 2, third_x * 2 + battery_width, third_y * 2 - 2);
+
+  // Determine wattage charge over all units and display it
+  uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
+  uint16_t alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
+  uint16_t charge_w = sol_w + alt_w;
+
+  if(charge_w != 0) {
+    sprintf((char*)&line, "+%dW", charge_w);
+    
+    display_set_buffer(display_buffer_black);
+    display_draw_text(line, third_x * 2, third_y * 2 + 4, Black);
+  }
+
+  // Determine wattage discharge over all units (Better to do from battery BMS once we hook that unit up...)
+  uint16_t sol_load_w = rvr40_registers[RVR40_REG_LOAD_W];
+  uint16_t load_w = sol_load_w;
+
+  if(load_w != 0) {
+    sprintf((char*)&line, "-%dW", sol_load_w);
+    
+    display_set_buffer(display_buffer_red);
+    display_draw_text(line, third_x * 2 + 32, third_y * 2 + 4, Red);
+  }
+
+  // Determine time until discharged or full
+  if(load_w > charge_w) {
+    // DUMMY TODO: BMS hookup
+    uint16_t chg_a = rvr40_registers[RVR40_REG_CHG_A] + dcc50s_registers[DCC50S_REG_ALT_A];
+    float load_a = (float)(chg_a - rvr40_registers[RVR40_REG_LOAD_A]) / 10.f;
+    float hrs_left = 200 / load_a;
+
+    if(hrs_left != INFINITY) {
+      sprintf((char*)&line, "%.2fh left", hrs_left);
+      display_set_buffer(display_buffer_red);
+      display_draw_text(line, third_x * 2, third_y - 20, Red);
+    }
+  } else {
+    float chg_a = (float)(dcc50s_registers[DCC50S_REG_ALT_A] + rvr40_registers[RVR40_REG_CHG_A]) / 10.f;
+    float load_a = (float)(chg_a - rvr40_registers[RVR40_REG_LOAD_A]) / 10.f;    
+    float hrs_full = 200 / load_a;
+    
+    if(hrs_full != INFINITY){
+      sprintf((char*)&line, "%.2fh full", hrs_full);
+      display_set_buffer(display_buffer_black);
+      display_draw_text(line, third_x * 2, third_y - 20, Red);
+    }
+  }
 }
 
 void update_page() {
@@ -227,16 +278,16 @@ void update_page() {
     display_wake();
     display_state = true;
   }
+  
   if(!display_partial_mode) {
     printf("Updating full screen normal refresh\n");
     display_send_buffer(display_buffer_black, SCREEN_W, SCREEN_H, 1);
     display_send_buffer(display_buffer_red, SCREEN_W, SCREEN_H, 2);
     display_refresh(true);
-    busy_wait_ms(500);
     display_sleep();
     display_state = false;
+    sleep_ms(500);
   } else {
-    display_state = true;
     printf("Updating partial\n");
     coord_t screen_region = { 0, 0, DISPLAY_W - 1, DISPLAY_H - 1 };
     display_draw_partial(display_buffer_black, display_buffer_red, screen_region);
@@ -301,6 +352,7 @@ int main() {
   display_init();
   display_state = true;
   display_clear();
+
   busy_wait_ms(500);
 
   gpio_put(LED_PIN, 0);
@@ -317,7 +369,7 @@ int main() {
     update_page();
     
     gpio_put(LED_PIN, 0);
-    sleep_ms(5000);
+    sleep_ms(1000);
   }
 }
 

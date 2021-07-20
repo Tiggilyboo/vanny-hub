@@ -3,16 +3,20 @@
 #define SCREEN_W (DISPLAY_W / 8)
 #define SCREEN_H DISPLAY_H
 
+#define SCREEN_BUSY_TIMEOUT 20000
+
 static uint8_t* display_buffer;
 
 static FontDef_t* font_normal = &FontNormal;
 static FontDef_t* font_title = &FontTitle;
 
 void display_reset() {
-  gpio_put(SPI_PIN_RST, 0);
-  busy_wait_ms(10);
   gpio_put(SPI_PIN_RST, 1);
-  busy_wait_ms(10);
+  busy_wait_ms(200);
+  gpio_put(SPI_PIN_RST, 0);
+  busy_wait_ms(2);
+  gpio_put(SPI_PIN_RST, 1);
+  busy_wait_ms(200);
 }
 
 void display_send_command(uint8_t reg) {
@@ -31,12 +35,20 @@ void display_send_data(uint8_t data) {
 
 void display_read_busy() {
   uint8_t busy;
+  uint32_t timeout = 0;
 
   printf("EPD busy...");
   do {
     display_send_command(EPD_GET_STATUS);
     busy = gpio_get(SPI_PIN_BSY);
     busy = !(busy & 0x01);
+    busy_wait_ms(1);
+
+    timeout += 1;
+    if(timeout > SCREEN_BUSY_TIMEOUT) {
+      printf("Timed out!\n");
+      break;
+    }
   } 
   while(busy);
   printf("Done.\n");
@@ -134,11 +146,8 @@ void display_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
   const int dx = x1 - x0;
   const int dy = y1 - y0;
   const int16_t ystep = (y0 < y1) ? 1 : -1;
-
   int16_t err = dx / 2;
   
-  printf("Drawing line: (%d, %d, %d, %d) ", x0, y0, x1, y1);
-  printf("[%d, %d]\n", dx, dy);
   for(; x0 <= x1; x0++) {
     if(steep) {
       display_draw_pixel(y0, x0, Black);
@@ -175,7 +184,7 @@ void display_draw_fill(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
 char display_draw_char(uint16_t x, uint16_t y, char ch, FontDef_t* font, colour_t colour) {
   uint16_t page, col;
 
-  if(x > DISPLAY_W || y > DISPLAY_H) {
+  if(x > DISPLAY_H || y > DISPLAY_W) {
     printf("Character trying to be drawn outside screen (%d, %d): '%c'\n", x, y, ch);
     return NULL;
   }
@@ -204,7 +213,6 @@ char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y, colo
   uint16_t current_x = x;
 
   printf("Drawing: ");
-
   while(*text) {
     if(display_draw_char(current_x, y, *text, font, colour) != *text) {
       return *text;
@@ -281,6 +289,7 @@ void display_draw_partial(const uint8_t* black_buffer, const uint8_t* red_buffer
   display_set_partial_window(region);
 
   display_send_buffer(black_buffer, SCREEN_W, SCREEN_H, 1);
+  display_send_command(EPD_PARTIAL_OUT);
   display_send_buffer(red_buffer, SCREEN_W, SCREEN_H, 2);
   display_send_command(EPD_PARTIAL_OUT);
 
@@ -304,21 +313,28 @@ void display_sleep() {
 
 void display_wake() {
   display_reset();
+ 
   display_send_command(EPD_BOOSTER_SOFT_START);
   display_send_data(0x17);
   display_send_data(0x17);
   display_send_data(0x17);
   display_send_command(EPD_POWER_ON);
+ 
   display_send_command(EPD_PANEL_SETTING);
   display_send_data(0x0f);
-  display_send_command(EPD_PLL_CONTROL);
-  display_send_data(0x3C);
-  display_send_command(EPD_VCOM_AND_DATA_INTERVAL_SETTING);
-  display_send_data(0x77);
+  display_send_data(0x89);
+
+  //display_send_command(EPD_PLL_CONTROL);
+  //display_send_data(0x3C);
+  
   display_send_command(EPD_TCON_RESOLUTION);
   display_send_data(0x80);
   display_send_data(0x01);
   display_send_data(0x28);
+  
+  display_send_command(EPD_VCOM_AND_DATA_INTERVAL_SETTING);
+  display_send_data(0x77);
+
   printf("Display awake!\n");
 }
 
