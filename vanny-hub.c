@@ -7,7 +7,7 @@
 #define LED_PIN 25
 #define BTN_PIN 21
 
-#define EPD_FULL_REFRESH_AFTER  5
+#define EPD_FULL_REFRESH_AFTER  3
 
 #define RS485_DCC50S_ADDRESS    1
 #define RS485_LFP12S_ADDRESS_A  2
@@ -15,6 +15,8 @@
 
 #define RS232_RVR40_ADDRESS     1
 
+// TODO: Until we read proper Ah value from unit addresses above...
+#define LFP12S_AH 200
 
 typedef enum {
   Overview,
@@ -94,11 +96,9 @@ void get_charge_status(char* buffer, uint16_t dcc50s_state, uint16_t rvr40_state
   }
 }
 
-void get_temperatures(char* buffer, uint16_t state) {
-  uint16_t internal_temp = (state >> 8);
-  uint16_t aux_temp = (state & 0xFF);
-
-  sprintf(buffer, "C %d*C B %d*C", internal_temp, aux_temp);
+void get_temperatures(uint16_t state, uint16_t* internal, uint16_t* aux) {
+  *internal = (state >> 8);
+  *aux = (state & 0xff);
 }
 
 void update_page_overview() {
@@ -106,30 +106,30 @@ void update_page_overview() {
 
   uint16_t aux_soc = dcc50s_registers[DCC50S_REG_AUX_SOC];
   float aux_v = (float)dcc50s_registers[DCC50S_REG_AUX_V] / 10.f;   // 0.1v
-  float aux_a = (float)dcc50s_registers[DCC50S_REG_AUX_A] / 100.f;  // 0.01a
 
+  uint16_t alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
   uint16_t dcc_charge_state = dcc50s_registers[DCC50S_REG_CHARGE_STATE];
-  uint16_t temperature = dcc50s_registers[DCC50S_REG_TEMPERATURE];
 
   // Sum any charge from the RVR40 as well
-  float sol_a = (float)rvr40_registers[RVR40_REG_SOLAR_A] / 100.f;
+  uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
   uint16_t rvr_charge_state = rvr40_registers[RVR40_REG_CHARGE_STATE];
 
   get_charge_status((char*)&line, dcc_charge_state, rvr_charge_state);
-  display_draw_title(line, 0, 0, Black);
+  display_draw_title(line, 5, 12, Black);
 
+  // Battery SOC% and voltage
   sprintf((char*)&line, "%d%%", aux_soc); 
-  display_draw_title(line, 72, 28, Black);
+  display_draw_title(line, DISPLAY_H / 2 - 5, DISPLAY_W / 3 + 3, Black);
+  sprintf((char*)&line, "%.*fV", 2, aux_v);
+  display_draw_text(line, DISPLAY_H / 2, DISPLAY_W / 3 + 30, Black);
 
-  // Also add any solar amperage
-  sprintf((char*)&line, "+%.*fA", 2, aux_a + sol_a);
-  display_draw_text(line, 0, 24, Black);
+  display_draw_text("Altenator", 10, 50, Black);
+  sprintf((char*)&line, "%dW", alt_w);
+  display_draw_text(line, 100, 50, Black);
 
-  sprintf((char*)&line, "%.*fV", 1, aux_v);
-  display_draw_text(line, 0, 36, Black);
-
-  get_temperatures((char*)&line, temperature);
-  display_draw_text(line, 0, 50, Black);
+  display_draw_text("Solar", 10, 70, Black);
+  sprintf((char*)&line, "%dW", sol_w);
+  display_draw_text(line, 100, 70, Black);
 }
 
 void update_page_solar() {
@@ -144,24 +144,27 @@ void update_page_solar() {
   float sol_a = (float)rvr40_registers[RVR40_REG_SOLAR_A] / 100.f;
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
 
-  display_draw_title("Solar", 0, 0, Black);
+  display_draw_title("Solar", 5, 15, Black);
 
   sprintf((char*)&line, "+ %.*fA", 1, sol_a);
-  display_draw_text(line, 0, 24, Black);
+  display_draw_text(line, 5, 39, Black);
 
   sprintf((char*)&line, "%.*fV", 1, sol_v);
-  display_draw_text(line, 48, 24, Black);
+  display_draw_text(line, 48, 39, Black);
 
   sprintf((char*)&line, "%dW", sol_w);
-  display_draw_text(line, 86, 24, Black);
+  display_draw_text(line, 86, 39, Black);
 
   sprintf((char*)&line, "Day +%dAh, -%dAh", 
       rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
       rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]);
-  display_draw_text(line, 0, 36, Black);
+  display_draw_text(line, 5, 51, Black);
 
-  get_temperatures((char*)&line, rvr40_registers[RVR40_REG_TEMPERATURE]);
-  display_draw_text(line, 0, 50, Black);
+  display_draw_text("Temperatures (C)", 5, 65, Black);
+  uint16_t temperature_ctrl, temperature_aux;
+  get_temperatures(rvr40_registers[RVR40_REG_TEMPERATURE], &temperature_ctrl, &temperature_aux);
+  sprintf((char*)&line, "RVR40: %d, Batt: %d", temperature_ctrl, temperature_aux);
+  display_draw_text(line, 5, 65, Black);
 }
 
 void update_page_altenator() {
@@ -187,7 +190,16 @@ void update_page_ui() {
   uint16_t battery_width = (uint16_t)(((DISPLAY_H - 20) - (third_x * 2 - 2)) * percent);
 
   display_draw_rect(third_x * 2, third_y, DISPLAY_H - 20, third_y * 2);
-  display_draw_fill(third_x * 2, third_y + 2, third_x * 2 + battery_width, third_y * 2 - 2);
+  if(percent > 0.25) {
+    display_set_buffer(display_buffer_black);
+  } else {
+    display_set_buffer(display_buffer_red);
+  }
+  display_draw_fill(third_x * 2 + 2, third_y + 2, third_x * 2 + battery_width, third_y * 2 - 1);
+
+  // Draw Ah meter
+  sprintf((char*)&line, "%d / %d Ah", (uint16_t)(LFP12S_AH * percent), LFP12S_AH);
+  display_draw_text(line, third_x * 2, third_y * 1 - 20, Black);
 
   // Determine wattage charge over all units and display it
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
@@ -217,22 +229,22 @@ void update_page_ui() {
     // DUMMY TODO: BMS hookup
     uint16_t chg_a = rvr40_registers[RVR40_REG_CHG_A] + dcc50s_registers[DCC50S_REG_ALT_A];
     float load_a = (float)(chg_a - rvr40_registers[RVR40_REG_LOAD_A]) / 10.f;
-    float hrs_left = 200 / load_a;
+    float hrs_left = ((1 - percent) * LFP12S_AH) / load_a;
 
     if(hrs_left != INFINITY) {
-      sprintf((char*)&line, "%.2fh left", hrs_left);
+      sprintf((char*)&line, "empty in %.2fh", hrs_left);
       display_set_buffer(display_buffer_red);
-      display_draw_text(line, third_x * 2, third_y - 20, Red);
+      display_draw_text(line, third_x * 2, third_y * 2 + 10, Red);
     }
   } else {
-    float chg_a = (float)(dcc50s_registers[DCC50S_REG_ALT_A] + rvr40_registers[RVR40_REG_CHG_A]) / 10.f;
+    uint16_t chg_a = dcc50s_registers[DCC50S_REG_ALT_A] + rvr40_registers[RVR40_REG_CHG_A];
     float load_a = (float)(chg_a - rvr40_registers[RVR40_REG_LOAD_A]) / 10.f;    
-    float hrs_full = 200 / load_a;
+    float hrs_full = ((1 - percent) * LFP12S_AH) / load_a;
     
-    if(hrs_full != INFINITY){
-      sprintf((char*)&line, "%.2fh full", hrs_full);
+    if(hrs_full != INFINITY && hrs_full != 0) {
+      sprintf((char*)&line, "full in %.2fh", hrs_full);
       display_set_buffer(display_buffer_black);
-      display_draw_text(line, third_x * 2, third_y - 20, Red);
+      display_draw_text(line, third_x * 2, third_y * 2 + 10, Black);
     }
   }
 }
@@ -246,7 +258,7 @@ void update_page() {
 
   // full refresh after x partials or first draw
   if(display_refresh_count == 0 || display_refresh_count >= EPD_FULL_REFRESH_AFTER) {
-    printf("Full refresh: ");
+    printf("Full refresh \n");
     display_partial_mode = false;
     display_refresh_count = 1;
   } else {
@@ -279,19 +291,21 @@ void update_page() {
     display_state = true;
   }
   
-  if(!display_partial_mode) {
+  //if(!display_partial_mode) {
     printf("Updating full screen normal refresh\n");
     display_send_buffer(display_buffer_black, SCREEN_W, SCREEN_H, 1);
     display_send_buffer(display_buffer_red, SCREEN_W, SCREEN_H, 2);
+    busy_wait_ms(20);
     display_refresh(true);
+    busy_wait_ms(200);
     display_sleep();
     display_state = false;
     sleep_ms(500);
-  } else {
-    printf("Updating partial\n");
-    coord_t screen_region = { 0, 0, DISPLAY_W - 1, DISPLAY_H - 1 };
-    display_draw_partial(display_buffer_black, display_buffer_red, screen_region);
-  }
+  //} else {
+  //  printf("Updating partial\n");
+  //  const coord_t screen_region = { 0, 0, DISPLAY_W - 1, DISPLAY_H - 1 };
+  //  display_draw_partial(display_buffer_black, display_buffer_red, screen_region);
+  //}
 }
 
 void btn_handler(uint gpio, uint32_t events) {

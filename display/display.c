@@ -3,7 +3,7 @@
 #define SCREEN_W (DISPLAY_W / 8)
 #define SCREEN_H DISPLAY_H
 
-#define SCREEN_BUSY_TIMEOUT 20000
+#define SCREEN_BUSY_TIMEOUT 30000
 
 static uint8_t* display_buffer;
 
@@ -33,6 +33,13 @@ void display_send_data(uint8_t data) {
   gpio_put(SPI_PIN_CS, 1);
 }
 
+void display_send_array_data(uint8_t* data, uint16_t size) {
+  gpio_put(SPI_PIN_DC, 1);
+  gpio_put(SPI_PIN_CS, 0);
+  spi_write_blocking(SPI_PORT, &data, size);
+  gpio_put(SPI_PIN_CS, 1);
+}
+
 void display_read_busy() {
   uint8_t busy;
   uint32_t timeout = 0;
@@ -42,8 +49,8 @@ void display_read_busy() {
     display_send_command(EPD_GET_STATUS);
     busy = gpio_get(SPI_PIN_BSY);
     busy = !(busy & 0x01);
+    
     busy_wait_ms(1);
-
     timeout += 1;
     if(timeout > SCREEN_BUSY_TIMEOUT) {
       printf("Timed out!\n");
@@ -214,6 +221,17 @@ char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y, colo
 
   printf("Drawing: ");
   while(*text) {
+    if(*text == '\n') {
+      y += font->font_height;
+      text++;
+      continue;
+    }
+    if(*text == '\t') {
+      current_x += font->font_width * 2;
+      text++;
+      continue;
+    }
+
     if(display_draw_char(current_x, y, *text, font, colour) != *text) {
       return *text;
     }
@@ -234,16 +252,17 @@ char display_draw_title(char* text, uint16_t x, uint16_t y, colour_t colour) {
   display_draw_font(text, font_title, x, y, colour);
 }
 
-inline void display_send_fill(const uint8_t command, const uint8_t value) {
+void display_send_fill(const uint8_t command, const uint8_t value) {
+  const uint16_t size = SCREEN_H * SCREEN_W;
+
   display_send_command(command);
-  for(int j = 0; j < SCREEN_H; j++) {
-    for(int i = 0; i < SCREEN_W; i++) {
-      display_send_data(value);
-    }
+  for(uint16_t i = 0; i < size; i++) {
+    display_send_data(value);
   }
 }
 
 void display_clear() {
+  printf("Clearing screen: ");
   display_send_fill(EPD_DATA_START_TRANSMISSION_1, 0xff);
   display_send_fill(EPD_DATA_START_TRANSMISSION_2, 0xff);
   display_refresh(true);
@@ -258,12 +277,14 @@ void display_fill_colour(colour_t colour) {
 }
 
 void display_send_buffer(const uint8_t* buffer, int w, int h, int dtm) {
-  uint8_t cmd = (dtm == 1) ? EPD_DATA_START_TRANSMISSION_1 : EPD_DATA_START_TRANSMISSION_2;
+  uint16_t size = w * h;
+  uint8_t cmd = (dtm == 1) 
+    ? EPD_DATA_START_TRANSMISSION_1 
+    : EPD_DATA_START_TRANSMISSION_2;
+
   display_send_command(cmd);
-  for(uint32_t y = 0; y < h; y++) {
-    for(uint32_t x = 0; x < w; x++) {
-      display_send_data(buffer[x + y * w]);
-    }
+  for(uint16_t i = 0; i < size; i++) {
+    display_send_data(buffer[i]);
   }
 }
 
@@ -289,7 +310,6 @@ void display_draw_partial(const uint8_t* black_buffer, const uint8_t* red_buffer
   display_set_partial_window(region);
 
   display_send_buffer(black_buffer, SCREEN_W, SCREEN_H, 1);
-  display_send_command(EPD_PARTIAL_OUT);
   display_send_buffer(red_buffer, SCREEN_W, SCREEN_H, 2);
   display_send_command(EPD_PARTIAL_OUT);
 
@@ -309,6 +329,7 @@ void display_sleep() {
   display_send_command(EPD_DEEP_SLEEP);
   display_send_data(EPD_CHECK_CODE);
   printf("Display off and sleeping!\n");
+  busy_wait_ms(500);
 }
 
 void display_wake() {
