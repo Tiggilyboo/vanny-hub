@@ -5,6 +5,7 @@
 #include <hardware/spi.h>
 
 #include "font.h"
+#include "menu-images.h"
 #include "display-ws-eink.h"
 
 typedef enum {
@@ -31,6 +32,7 @@ void display_draw_rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 void display_draw_fill(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 char display_draw_text(char* text, uint16_t x, uint16_t y, colour_t colour);
 char display_draw_title(char* title, uint16_t x, uint16_t y, colour_t colour);
+void display_draw_xbitmap(int16_t x_point, uint16_t y_point, uint16_t w, uint16_t h, const uint8_t* bitmap);
 void display_fill_colour(colour_t colour);
 void display_clear();
 void display_refresh(bool wait_busy);

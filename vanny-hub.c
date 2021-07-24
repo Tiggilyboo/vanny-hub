@@ -7,6 +7,7 @@
 #define LED_PIN 25
 #define BTN_PIN 21
 
+//#define EPD_UPDATE_PARTIAL
 #define EPD_FULL_REFRESH_AFTER  3
 
 #define RS485_DCC50S_ADDRESS    1
@@ -18,10 +19,11 @@
 // TODO: Until we read proper Ah value from unit addresses above...
 #define LFP12S_AH 200
 
+
 typedef enum {
   Overview,
-  Altenator,
   Solar,
+  Altenator,
   PageContentsCount,
 } PageContents_t;
 
@@ -62,15 +64,15 @@ void get_charge_status(char* buffer, uint16_t dcc50s_state, uint16_t rvr40_state
   bool charging = false;
 
   if ((dcc50s_state & DCC50S_CHARGE_STATE_SOLAR) > 0) {
-    append_buf(buffer, "Sol ");
+    append_buf(buffer, "Solar ");
     charging = true;
   }
   if ((dcc50s_state & DCC50S_CHARGE_STATE_ALT) > 0) {
-    append_buf(buffer, "Alt ");
+    append_buf(buffer, "Altenator ");
     charging = true;
   }
   if ((rvr40_state & RVR40_CHARGE_ACTIVE) > 0) {
-    append_buf(buffer, "Sol ");
+    append_buf(buffer, "Solar ");
     charging = true;
   }
   if(!charging){
@@ -143,28 +145,35 @@ void update_page_solar() {
   float sol_v = (float)rvr40_registers[RVR40_REG_SOLAR_V] / 10.f;
   float sol_a = (float)rvr40_registers[RVR40_REG_SOLAR_A] / 100.f;
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
+  uint16_t temperature_ctrl, temperature_aux;
 
-  display_draw_title("Solar", 5, 15, Black);
+  display_draw_title("Solar", 5, 12, Black);
 
   sprintf((char*)&line, "+ %.*fA", 1, sol_a);
-  display_draw_text(line, 5, 39, Black);
+  display_draw_text(line, 5, 50, Black);
 
   sprintf((char*)&line, "%.*fV", 1, sol_v);
-  display_draw_text(line, 48, 39, Black);
+  display_draw_text(line, 50, 50, Black);
 
   sprintf((char*)&line, "%dW", sol_w);
-  display_draw_text(line, 86, 39, Black);
+  display_draw_title(line, 100, 50, Black);
 
-  sprintf((char*)&line, "Day +%dAh, -%dAh", 
-      rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
+  display_draw_text("Daily Stats", DISPLAY_H / 2 + 15, 30, Black);
+  display_draw_text("Charged", DISPLAY_H / 2 + 25, 45, Black);
+  display_draw_text("Discharged", DISPLAY_H / 2 + 25, 60, Black);
+
+  sprintf((char*)&line, "%dAh", 
+      rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS]);
+  display_draw_text(line, DISPLAY_H - 35, 45, Black);
+  
+  sprintf((char*)&line, "%dAh", 
       rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]);
-  display_draw_text(line, 5, 51, Black);
+  display_draw_text(line, DISPLAY_H - 35, 60, Black);
 
-  display_draw_text("Temperatures (C)", 5, 65, Black);
-  uint16_t temperature_ctrl, temperature_aux;
+  display_draw_text("Temperatures (C)", DISPLAY_H / 2 + 15, 80, Black);
   get_temperatures(rvr40_registers[RVR40_REG_TEMPERATURE], &temperature_ctrl, &temperature_aux);
-  sprintf((char*)&line, "RVR40: %d, Batt: %d", temperature_ctrl, temperature_aux);
-  display_draw_text(line, 5, 65, Black);
+  sprintf((char*)&line, "RVR40: %d, Aux: %d", temperature_ctrl, temperature_aux);
+  display_draw_text(line, DISPLAY_H / 2 + 25, 95, Black);
 }
 
 void update_page_altenator() {
@@ -173,14 +182,53 @@ void update_page_altenator() {
   uint16_t alt_a = dcc50s_registers[DCC50S_REG_ALT_A];
   uint16_t alt_v = dcc50s_registers[DCC50S_REG_ALT_V];
   uint16_t alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
+  uint16_t day_total_ah = dcc50s_registers[DCC50S_REG_DAY_TOTAL_AH];
+  uint16_t temperatures = dcc50s_registers[RVR40_REG_TEMPERATURE];
+  uint16_t temperature_ctrl, temperature_aux;
 
-  sprintf((char*)&line, "%dA %dV %dW", alt_a, alt_v, alt_w);
-  display_draw_title("Altenator", 0, 0, Black);
+  display_draw_title("Altenator", 5, 12, Black);
+  display_draw_text("Charge Status", DISPLAY_H / 2 + 20, 35, Black);
 
-  display_draw_text(line, 32, 20, Black);
+  sprintf((char*)&line, "%dA", alt_a);
+  display_draw_text(line, DISPLAY_H / 2 + 20, 65, Black);
+
+  sprintf((char*)&line, "%dV", alt_v);
+  display_draw_text(line, DISPLAY_H / 2 + 50, 65, Black);
+
+  sprintf((char*)&line, "%dW", alt_w);
+  display_draw_title(line, DISPLAY_H / 2 + 100, 55, Black);
+
+  sprintf((char*)&line, "%dAh today", day_total_ah);
+  display_draw_text(line, DISPLAY_H / 2 + 25, 80, Black);
+  
+  display_draw_text("Temperatures (C)", 10, 45, Black);
+  get_temperatures(temperatures, &temperature_ctrl, &temperature_aux);
+  sprintf((char*)&line, "DCC50S: %d, Aux: %d", temperature_ctrl, temperature_aux);
+  display_draw_text(line, 20, 60, Black);
 }
 
-void update_page_ui() {
+void update_menu() {
+  const uint16_t size = MENU_IMAGE_SIZE;
+  const uint16_t menu_y = DISPLAY_W - MENU_IMAGE_SIZE;
+
+  display_draw_xbitmap(0, menu_y, size, size, menu_home_bits);
+  display_draw_xbitmap(size, menu_y, size, size, menu_solar_bits);
+  display_draw_xbitmap(size * 2, menu_y, size, size, menu_altenator_bits);
+
+  switch(current_page) {
+    case Overview:
+      display_draw_rect(0, menu_y, size, DISPLAY_W - 1);
+      break;
+    case Solar:
+      display_draw_rect(size, menu_y, size * 2, DISPLAY_W - 1);
+      break;
+    case Altenator:
+      display_draw_rect(size * 2, menu_y, size * 3, DISPLAY_W - 1);
+      break;
+  }
+}
+
+void update_page_overview_battery() {
   const uint16_t third_x = DISPLAY_H / 3;
   const uint16_t third_y = DISPLAY_W / 3;
   char line[32];
@@ -256,6 +304,7 @@ void update_page() {
   display_set_buffer((const uint8_t*)display_buffer_black);
   display_fill_colour(White);
 
+#ifdef EPD_UPDATE_PARTIAL
   // full refresh after x partials or first draw
   if(display_refresh_count == 0 || display_refresh_count >= EPD_FULL_REFRESH_AFTER) {
     printf("Full refresh \n");
@@ -265,10 +314,14 @@ void update_page() {
     display_partial_mode = true;
     display_refresh_count++;
   }
+#endif
+  
+  update_menu();
 
   switch(current_page) {
     case Overview: 
       update_page_overview();
+      update_page_overview_battery();
       break;
 
     case Altenator:
@@ -280,18 +333,20 @@ void update_page() {
       break;
 
     default:
-      display_draw_title("404", 0, 0, Black);
+      display_draw_title("404", 5, 12, Black);
       break;
   }
 
-  update_page_ui();
   
   if(!display_state){
     display_wake();
     display_state = true;
   }
   
-  //if(!display_partial_mode) {
+#ifdef EPD_UPDATE_PARTIAL
+  if(!display_partial_mode) {
+#endif
+
     printf("Updating full screen normal refresh\n");
     display_send_buffer(display_buffer_black, SCREEN_W, SCREEN_H, 1);
     display_send_buffer(display_buffer_red, SCREEN_W, SCREEN_H, 2);
@@ -300,35 +355,40 @@ void update_page() {
     busy_wait_ms(200);
     display_sleep();
     display_state = false;
-    sleep_ms(500);
-  //} else {
-  //  printf("Updating partial\n");
-  //  const coord_t screen_region = { 0, 0, DISPLAY_W - 1, DISPLAY_H - 1 };
-  //  display_draw_partial(display_buffer_black, display_buffer_red, screen_region);
-  //}
+    busy_wait_ms(1000);
+
+#ifdef EPD_UPDATE_PARTIAL
+  } else {
+    printf("Updating partial\n");
+    const coord_t screen_region = { 0, 0, DISPLAY_W - 1, DISPLAY_H - 1 };
+    display_draw_partial(display_buffer_black, display_buffer_red, screen_region);
+  }
+#endif
 }
 
 void btn_handler(uint gpio, uint32_t events) {
-  static uint64_t time_handled;
-
 #ifdef _VERBOSE
   printf("Btn @ %d is now %02x\n", gpio, events);
 #endif
-/*
+
   if (events & 0x1) { // Low
   }
   if (events & 0x2) { // High
   }
   if (events & 0x4) { // Fall
-  }
-*/
-  if (events & 0x8) { // Rise
     // debounce
+    if(time_us_64() > btn_last_pressed + 800000) // 800ms
+    {
+      btn_last_pressed = time_us_64();
+      update_page();
+    }
+  }
+  if (events & 0x8) { // Rise
     if(time_us_64() > btn_last_pressed + 350000) // 350ms
     {
       current_page = (++current_page) % PageContentsCount;
       printf("Changed current page to %d\n", current_page);
-      update_page();
+      btn_last_pressed = time_us_64();
     }
   }
 }
@@ -344,7 +404,7 @@ int main() {
   gpio_init(BTN_PIN);
   gpio_set_dir(BTN_PIN, GPIO_IN);
   gpio_set_irq_enabled_with_callback(BTN_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &btn_handler);
-  current_page = Overview;
+  current_page = Altenator; //Overview;
   btn_last_pressed = time_us_64();
 
   state = devices_modbus_init();

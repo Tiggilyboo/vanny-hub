@@ -33,13 +33,6 @@ void display_send_data(uint8_t data) {
   gpio_put(SPI_PIN_CS, 1);
 }
 
-void display_send_array_data(uint8_t* data, uint16_t size) {
-  gpio_put(SPI_PIN_DC, 1);
-  gpio_put(SPI_PIN_CS, 0);
-  spi_write_blocking(SPI_PORT, &data, size);
-  gpio_put(SPI_PIN_CS, 1);
-}
-
 void display_read_busy() {
   uint8_t busy;
   uint32_t timeout = 0;
@@ -53,14 +46,13 @@ void display_read_busy() {
     busy_wait_ms(1);
     timeout += 1;
     if(timeout > SCREEN_BUSY_TIMEOUT) {
-      printf("Timed out!\n");
+      printf("Timed out, forcing reset!\n");
+      display_wake();
       break;
     }
   } 
   while(busy);
   printf("Done.\n");
-
-  busy_wait_ms(200);
 }
 
 void display_gpio_init() {
@@ -170,13 +162,9 @@ void display_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
 }
 
 void display_draw_rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-  // Top left -> Top Right
   display_draw_line(x1, y1, x2, y1);
-  // Bottom left -> Bottom Right
   display_draw_line(x1, y2, x2, y2);
-  // Top left -> Bottom left
   display_draw_line(x1, y1, x1, y2);
-  // Top right -> Bottom right
   display_draw_line(x2, y1, x2, y2);
 }
 
@@ -252,6 +240,23 @@ char display_draw_title(char* text, uint16_t x, uint16_t y, colour_t colour) {
   display_draw_font(text, font_title, x, y, colour);
 }
 
+void display_draw_xbitmap(int16_t x_point, uint16_t y_point, uint16_t w, uint16_t h, const uint8_t bitmap[]) {
+  int16_t bwidth = (w + 7) / 8;
+  uint8_t data = 0;
+
+  for(uint16_t y = 0; y < h; y++, y_point++) {
+    for(uint16_t x = 0; x < w; x++) {
+      if(x & 7)
+        data >>= 1;
+      else
+        data = bitmap[y * bwidth + x / 8];
+      
+      if(data & 0x01)
+        display_draw_pixel(x_point + x, y_point, Black);
+    }
+  }
+}
+
 void display_send_fill(const uint8_t command, const uint8_t value) {
   const uint16_t size = SCREEN_H * SCREEN_W;
 
@@ -310,6 +315,7 @@ void display_draw_partial(const uint8_t* black_buffer, const uint8_t* red_buffer
   display_set_partial_window(region);
 
   display_send_buffer(black_buffer, SCREEN_W, SCREEN_H, 1);
+  display_send_command(EPD_PARTIAL_OUT);
   display_send_buffer(red_buffer, SCREEN_W, SCREEN_H, 2);
   display_send_command(EPD_PARTIAL_OUT);
 
