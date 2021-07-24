@@ -1,32 +1,6 @@
 #include "devices-modbus.h"
 #include "vanny-hub.h"
 
-#define _OFFLINE_TESTING
-#define _VERBOSE
-
-#define LED_PIN 25
-#define BTN_PIN 21
-
-//#define EPD_UPDATE_PARTIAL
-#define EPD_FULL_REFRESH_AFTER  3
-
-#define RS485_DCC50S_ADDRESS    1
-#define RS485_LFP12S_ADDRESS_A  2
-#define RS485_LFP12S_ADDRESS_B  3
-
-#define RS232_RVR40_ADDRESS     1
-
-// TODO: Until we read proper Ah value from unit addresses above...
-#define LFP12S_AH 200
-
-
-typedef enum {
-  Overview,
-  Solar,
-  Altenator,
-  PageContentsCount,
-} PageContents_t;
-
 // Interface State
 static PageContents_t current_page;
 static uint64_t btn_last_pressed;
@@ -41,6 +15,11 @@ static bool display_partial_mode;
 // Device State
 static uint16_t dcc50s_registers[DCC50S_REG_END+1];
 static uint16_t rvr40_registers[RVR40_REG_END+1];
+
+// Statistics State
+static uint16_t stats_count;
+static Statshot_t stats_data[MAX_STATS_HISTORY];
+static Statshot_t* stats_head = (Statshot_t*)&stats_data;
 
 char* append_buf(char* s1, char* s2) {
   if(s1 == NULL || s2 == NULL)
@@ -103,6 +82,7 @@ void get_temperatures(uint16_t state, uint16_t* internal, uint16_t* aux) {
   *aux = (state & 0xff);
 }
 
+
 void update_page_overview() {
   char line[32];
 
@@ -137,11 +117,6 @@ void update_page_overview() {
 void update_page_solar() {
   char line[32];
 
-  /* DCC50S Solar if so inclined...
-  uint16_t sol_a = dcc50s_registers[DCC50S_REG_SOL_A];
-  uint16_t sol_v = dcc50s_registers[DCC50S_REG_SOL_V];
-  uint16_t sol_w = dcc50s_registers[DCC50S_REG_SOL_W];
-  */
   float sol_v = (float)rvr40_registers[RVR40_REG_SOLAR_V] / 10.f;
   float sol_a = (float)rvr40_registers[RVR40_REG_SOLAR_A] / 100.f;
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
@@ -187,24 +162,24 @@ void update_page_altenator() {
   uint16_t temperature_ctrl, temperature_aux;
 
   display_draw_title("Altenator", 5, 12, Black);
-  display_draw_text("Charge Status", DISPLAY_H / 2 + 20, 35, Black);
+  display_draw_text("Charge Status", DISPLAY_H / 2 + 20, 30, Black);
 
   sprintf((char*)&line, "%dA", alt_a);
-  display_draw_text(line, DISPLAY_H / 2 + 20, 65, Black);
+  display_draw_text(line, DISPLAY_H / 2 + 20, 53, Black);
 
   sprintf((char*)&line, "%dV", alt_v);
-  display_draw_text(line, DISPLAY_H / 2 + 50, 65, Black);
+  display_draw_text(line, DISPLAY_H / 2 + 40, 53, Black);
 
   sprintf((char*)&line, "%dW", alt_w);
-  display_draw_title(line, DISPLAY_H / 2 + 100, 55, Black);
+  display_draw_title(line, DISPLAY_H / 2 + 80, 50, Black);
 
   sprintf((char*)&line, "%dAh today", day_total_ah);
-  display_draw_text(line, DISPLAY_H / 2 + 25, 80, Black);
+  display_draw_text(line, DISPLAY_H / 2 + 25, 65, Black);
   
-  display_draw_text("Temperatures (C)", 10, 45, Black);
+  display_draw_text("Temperatures (C)", 10, 40, Black);
   get_temperatures(temperatures, &temperature_ctrl, &temperature_aux);
   sprintf((char*)&line, "DCC50S: %d, Aux: %d", temperature_ctrl, temperature_aux);
-  display_draw_text(line, 20, 60, Black);
+  display_draw_text(line, 20, 55, Black);
 }
 
 void update_menu() {
@@ -214,6 +189,7 @@ void update_menu() {
   display_draw_xbitmap(0, menu_y, size, size, menu_home_bits);
   display_draw_xbitmap(size, menu_y, size, size, menu_solar_bits);
   display_draw_xbitmap(size * 2, menu_y, size, size, menu_altenator_bits);
+  display_draw_xbitmap(size * 3, menu_y, size, size, menu_stats_bits);
 
   switch(current_page) {
     case Overview:
@@ -224,6 +200,9 @@ void update_menu() {
       break;
     case Altenator:
       display_draw_rect(size * 2, menu_y, size * 3, DISPLAY_W - 1);
+      break;
+    case Statistics:
+      display_draw_rect(size * 3, menu_y, size * 4, DISPLAY_W - 1);
       break;
   }
 }
@@ -297,6 +276,60 @@ void update_page_overview_battery() {
   }
 }
 
+void draw_stat(uint16_t i, uint16_t plot_x_start, uint16_t plot_x_iter, uint16_t plot_height) {
+  char line[3];
+  uint16_t value = plot_height - ((float)stats_data[i].aux_soc / 100.f) * plot_height;
+  uint16_t x = plot_x_start + plot_x_iter * i;
+  uint16_t avg, sum;
+
+  display_set_buffer(display_buffer_black);
+  display_draw_pixel(x, value, Black);
+
+  if(stats_count - 1 != i && i % 24 == 0) {
+    if(i > 24) {
+      for(uint16_t v = i - 24; v < i + 24; v++) {
+        sum += stats_data[v].aux_soc;
+      }
+      avg = plot_height - ((float)sum / 24.f) * plot_height;
+      
+      display_set_buffer(display_buffer_red);
+      display_draw_fill(x - 1, avg - 1, x + 2, avg + 2);
+    }
+
+    sprintf((char*)line, "%d", 1 + i / 24);
+
+    display_set_buffer(display_buffer_black);
+    display_draw_text(line, x, plot_height + 5, Black);
+  }
+}
+
+void update_page_statistics() {
+  const uint16_t plot_x_start = 25;
+  const uint16_t plot_x_iter = stats_count == 0 ? 1 : (DISPLAY_H - plot_x_start) / stats_count;
+  const uint16_t plot_height = DISPLAY_W - MENU_IMAGE_SIZE - 25;
+
+  uint16_t join_index;
+
+  display_draw_rect(plot_x_start, 0, DISPLAY_H - 1, plot_height);
+  display_draw_text("0", 5, plot_height - 5, Black);
+  display_draw_text("%", 5, plot_height / 2, Black);
+  display_draw_text("100", 0, 0, Black);
+
+  // iterate to find where beginning meets end (ring buffer)
+  for(uint16_t i = 0; i < MAX_STATS_HISTORY; i++) {
+    if(stats_data[i].index == 0) {
+      join_index = i;
+      break;
+    }
+  }
+  for(uint16_t i = 0; i < join_index; i++) {
+    draw_stat(i, plot_x_start, plot_x_iter, plot_height);
+  }
+  for(uint16_t i = join_index; i < MAX_STATS_HISTORY; i++) {
+    draw_stat(i, plot_x_start, plot_x_iter, plot_height);
+  }
+}
+
 void update_page() {
   // Clear black and red buffers (with White, 0xff);
   display_set_buffer((const uint8_t*)display_buffer_red);
@@ -332,12 +365,15 @@ void update_page() {
       update_page_solar();
       break;
 
+    case Statistics:
+      update_page_statistics();
+      break;
+
     default:
       display_draw_title("404", 5, 12, Black);
       break;
   }
 
-  
   if(!display_state){
     display_wake();
     display_state = true;
@@ -393,6 +429,38 @@ void btn_handler(uint gpio, uint32_t events) {
   }
 }
 
+void update_statistics() {
+  // lazy mans ring buffer
+  if(stats_count < MAX_STATS_HISTORY - 1) {
+    stats_head++;
+    stats_count++;
+    stats_head->index = stats_count;
+  } else {
+    // reset to head
+    if(stats_head->index >= MAX_STATS_HISTORY-1) {
+      stats_head = (Statshot_t*)&stats_data;
+      stats_head->index = 0;
+    }
+    else {
+      uint8_t last_index = stats_head->index;
+      stats_head++;
+      stats_head->index = last_index + 1;
+    }
+  }
+
+  // DCC50S
+  stats_head->aux_soc = dcc50s_registers[DCC50S_REG_AUX_SOC];
+  stats_head->alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
+
+  // RVR40
+  stats_head->sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
+
+  // Computed
+  stats_head->charged_ah = dcc50s_registers[DCC50S_REG_DAY_TOTAL_AH] 
+    + rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS];
+  stats_head->discharged_ah = rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS];
+}
+
 int main() {
   int state;
 
@@ -404,7 +472,7 @@ int main() {
   gpio_init(BTN_PIN);
   gpio_set_dir(BTN_PIN, GPIO_IN);
   gpio_set_irq_enabled_with_callback(BTN_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &btn_handler);
-  current_page = Altenator; //Overview;
+  current_page = Statistics; //Overview;
   btn_last_pressed = time_us_64();
 
   state = devices_modbus_init();
@@ -423,6 +491,19 @@ int main() {
     return state;
   }
 
+#ifdef _OFFLINE_TESTING
+    // insert test stats
+    dcc50s_registers[0] = 50;
+    for(uint16_t i = 0; i < MAX_STATS_HISTORY; i++) {
+      dcc50s_registers[0] += 5 - (rand() % 10);
+
+      if(dcc50s_registers[0] > 100)
+        dcc50s_registers[0] = 100;
+
+      update_statistics();
+    }
+#endif
+
   display_init();
   display_state = true;
   display_clear();
@@ -430,6 +511,7 @@ int main() {
   busy_wait_ms(500);
 
   gpio_put(LED_PIN, 0);
+
 
   while(1) {
     gpio_put(LED_PIN, 1);
@@ -439,7 +521,7 @@ int main() {
 
     devices_modbus_read_registers(
       RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, (uint16_t*)&dcc50s_registers);
-    
+
     update_page();
     
     gpio_put(LED_PIN, 0);

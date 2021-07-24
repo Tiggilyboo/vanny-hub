@@ -254,10 +254,10 @@ void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t add
 
   if(inst == RS485_PORT) {
     memcpy(returned_data, &dcc50s_test_frame, sizeof(dcc50s_test_frame) / sizeof(dcc50s_test_frame[0]));
-#ifdef _OFFLINE_TESTING
     if(dcc50s_test_frame[0] > 1)
       dcc50s_test_frame[0]--;
-#endif
+    else
+      dcc50s_test_frame[0] = 50;
   }
   else if(inst == RS232_PORT) {
     memcpy(returned_data, &rvr40_test_frame, sizeof(rvr40_test_frame) / sizeof(rvr40_test_frame[0]));
