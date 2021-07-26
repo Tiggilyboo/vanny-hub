@@ -87,7 +87,7 @@ int display_init() {
   return 0;
 }
 
-void display_set_buffer(const uint8_t* buffer) {
+void display_set_buffer(uint8_t* buffer) {
   display_buffer = buffer;  
 }
 
@@ -120,10 +120,10 @@ void display_draw_pixel(uint16_t x_start, uint16_t y_start, colour_t colour) {
       break;
   }
 }
-void display_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
-  const int16_t steep = y1 - y0 > x1 - x0;
+void display_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1) {
+  const int16_t steep = abs(y1 - y0) > abs(x1 - x0);
   if(steep) {
-    uint16_t t = x0;
+    int16_t t = x0;
     x0 = y0;
     y0 = t;
     
@@ -143,14 +143,22 @@ void display_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
   }
 
   const int dx = x1 - x0;
-  const int dy = y1 - y0;
-  const int16_t ystep = (y0 < y1) ? 1 : -1;
+  const int dy = abs(y1 - y0);
   int16_t err = dx / 2;
+  const int16_t ystep = (y0 < y1) ? 1 : -1;
   
   for(; x0 <= x1; x0++) {
     if(steep) {
+      if(y0 > DISPLAY_H || x0 > DISPLAY_W) {
+        printf("Steep line trying to be drawn outside screen (%d, %d)\n", x0, y0);
+        return;
+      }
       display_draw_pixel(y0, x0, Black);
     } else {
+      if(x0 > DISPLAY_H || y0 > DISPLAY_W) {
+        printf("Line trying to be drawn outside screen (%d, %d)\n", x0, y0);
+        return;
+      }
       display_draw_pixel(x0, y0, Black);
     }
     err -= dy;
@@ -181,7 +189,7 @@ char display_draw_char(uint16_t x, uint16_t y, char ch, FontDef_t* font, colour_
 
   if(x > DISPLAY_H || y > DISPLAY_W) {
     printf("Character trying to be drawn outside screen (%d, %d): '%c'\n", x, y, ch);
-    return NULL;
+    return 0;
   }
 
   uint32_t char_offset = (ch - ' ') * font->font_height * (font->font_width / 8 + (font->font_width % 8 ? 1 : 0));
@@ -207,7 +215,6 @@ char display_draw_char(uint16_t x, uint16_t y, char ch, FontDef_t* font, colour_
 char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y, colour_t colour) {
   uint16_t current_x = x;
 
-  printf("Drawing: ");
   while(*text) {
     if(*text == '\n') {
       y += font->font_height;
@@ -223,14 +230,11 @@ char display_draw_font(char* text, FontDef_t* font, uint16_t x, uint16_t y, colo
     if(display_draw_char(current_x, y, *text, font, colour) != *text) {
       return *text;
     }
-    printf("%c", *text);
 
     // increment to next character, and associated character width
     text++;
     current_x += font->font_width;
   }
-
-  printf("\n");
 }
 
 char display_draw_text(char* text, uint16_t x, uint16_t y, colour_t colour) {

@@ -4,6 +4,15 @@
 // Interface State
 static PageContents_t current_page;
 static uint64_t btn_last_pressed;
+static uint64_t time_since_boot;
+
+// Statistics State
+static uint16_t stats_count;
+static Statshot_t stats_data[STATS_MAX_HISTORY];
+static Statshot_t* stats_head = (Statshot_t*)&stats_data;
+static uint16_t stats_rolling_count;
+static Statshot_t stats_rolling;
+static struct repeating_timer timer_stats_historic;
 
 // EPD State
 static uint8_t display_buffer_black[SCREEN_W * SCREEN_H];
@@ -15,11 +24,6 @@ static bool display_partial_mode;
 // Device State
 static uint16_t dcc50s_registers[DCC50S_REG_END+1];
 static uint16_t rvr40_registers[RVR40_REG_END+1];
-
-// Statistics State
-static uint16_t stats_count;
-static Statshot_t stats_data[MAX_STATS_HISTORY];
-static Statshot_t* stats_head = (Statshot_t*)&stats_data;
 
 char* append_buf(char* s1, char* s2) {
   if(s1 == NULL || s2 == NULL)
@@ -276,30 +280,46 @@ void update_page_overview_battery() {
   }
 }
 
+inline static bool should_draw_stat_in_days() {
+  return (stats_count >= 48);
+}
+
 void draw_stat(uint16_t i, uint16_t plot_x_start, uint16_t plot_x_iter, uint16_t plot_height) {
   char line[3];
   uint16_t value = plot_height - ((float)stats_data[i].aux_soc / 100.f) * plot_height;
   uint16_t x = plot_x_start + plot_x_iter * i;
-  uint16_t avg, sum;
 
-  display_set_buffer(display_buffer_black);
-  display_draw_pixel(x, value, Black);
+  if(i > 0) {
+    uint16_t last_value = plot_height - ((float)stats_data[i - 1].aux_soc / 100.f) * plot_height;
+    
+    display_set_buffer(display_buffer_black);
+    display_draw_line(x - plot_x_iter, last_value, x, value);
+  }
 
-  if(stats_count - 1 != i && i % 24 == 0) {
-    if(i > 24) {
-      for(uint16_t v = i - 24; v < i + 24; v++) {
+  if(should_draw_stat_in_days()) {
+    if((stats_count - i) % 24 == 0) {
+      uint16_t avg, sum;
+      for(uint16_t v = i - 24; v < i; v++) {
         sum += stats_data[v].aux_soc;
       }
       avg = plot_height - ((float)sum / 24.f) * plot_height;
       
       display_set_buffer(display_buffer_red);
       display_draw_fill(x - 1, avg - 1, x + 2, avg + 2);
+      
+      sprintf((char*)line, "%d", (stats_count - i) / 24);
+      display_set_buffer(display_buffer_black);
+      display_draw_text(line, x, plot_height + 7, Black);
     }
+  } else {
+    display_set_buffer(display_buffer_red);
+    display_draw_fill(x - 1, value - 1, x + 2, value + 2);
 
-    sprintf((char*)line, "%d", 1 + i / 24);
-
-    display_set_buffer(display_buffer_black);
-    display_draw_text(line, x, plot_height + 5, Black);
+    if(stats_count < 12 || (stats_count - i) % 5 == 0) {
+      sprintf((char*)line, "%d", (stats_count - i));
+      display_set_buffer(display_buffer_black);
+      display_draw_text(line, x - 5, plot_height + 7, Black);
+    }
   }
 }
 
@@ -310,31 +330,40 @@ void update_page_statistics() {
 
   uint16_t join_index;
 
+  // Draw chart with axis
   display_draw_rect(plot_x_start, 0, DISPLAY_H - 1, plot_height);
   display_draw_text("0", 5, plot_height - 5, Black);
   display_draw_text("%", 5, plot_height / 2, Black);
   display_draw_text("100", 0, 0, Black);
 
+  // Determine if we are rendering days or hours
+  if(should_draw_stat_in_days()) {
+    display_draw_title("Daily", DISPLAY_H - 80, DISPLAY_W - 20, Black);
+  } else {
+    display_draw_title("Hourly", DISPLAY_H - 96, DISPLAY_W - 20, Black);
+  }
+
   // iterate to find where beginning meets end (ring buffer)
-  for(uint16_t i = 0; i < MAX_STATS_HISTORY; i++) {
+  for(uint16_t i = 0; i < stats_count; i++) {
     if(stats_data[i].index == 0) {
       join_index = i;
       break;
     }
   }
+  // draw from beginning to end of the buffer (regardless of starting index)
   for(uint16_t i = 0; i < join_index; i++) {
     draw_stat(i, plot_x_start, plot_x_iter, plot_height);
   }
-  for(uint16_t i = join_index; i < MAX_STATS_HISTORY; i++) {
+  for(uint16_t i = join_index; i < stats_count; i++) {
     draw_stat(i, plot_x_start, plot_x_iter, plot_height);
   }
 }
 
 void update_page() {
   // Clear black and red buffers (with White, 0xff);
-  display_set_buffer((const uint8_t*)display_buffer_red);
+  display_set_buffer(display_buffer_red);
   display_fill_colour(White);
-  display_set_buffer((const uint8_t*)display_buffer_black);
+  display_set_buffer(display_buffer_black);
   display_fill_colour(White);
 
 #ifdef EPD_UPDATE_PARTIAL
@@ -429,15 +458,83 @@ void btn_handler(uint gpio, uint32_t events) {
   }
 }
 
-void update_statistics() {
+inline static uint16_t update_rolling_statistic(uint16_t* avg, uint16_t new_value) {
+  if(stats_rolling_count == 0)
+    return *avg;
+
+  *avg = (*avg * (stats_rolling_count - 1) + new_value) / stats_rolling_count;
+
+  return *avg;
+}
+
+Statshot_t get_latest_stats() {
+  Statshot_t latest = {
+    (uint8_t)(stats_rolling_count + 1),
+    dcc50s_registers[DCC50S_REG_AUX_SOC],
+    dcc50s_registers[DCC50S_REG_ALT_W],
+    rvr40_registers[RVR40_REG_SOLAR_W],
+    dcc50s_registers[DCC50S_REG_DAY_TOTAL_AH] + rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
+    rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]
+  };
+  return latest;
+}
+
+void reset_statistics(Statshot_t* stat) {
+  Statshot_t latest = get_latest_stats();
+
+  stat->aux_soc = latest.aux_soc;
+  stat->alt_w = latest.alt_w;
+  stat->sol_w = latest.sol_w;
+  stat->charged_ah = latest.charged_ah;
+  stat->discharged_ah = latest.discharged_ah;
+}
+
+void update_rolling_statistic_from_latest() {
+  Statshot_t latest = get_latest_stats();
+  
+  // First update?
+  if(stats_rolling_count <= 1) {
+    reset_statistics(&stats_rolling);  
+  }
+  printf("Updating rolling with latest %d percent\n", latest.aux_soc);
+
+  // Update using rolling average values
+  stats_rolling.aux_soc = update_rolling_statistic(&stats_rolling.aux_soc, latest.aux_soc);
+  stats_rolling.alt_w = update_rolling_statistic(&stats_rolling.alt_w, latest.alt_w);
+  stats_rolling.sol_w = update_rolling_statistic(&stats_rolling.sol_w, latest.sol_w);
+  stats_rolling.charged_ah = update_rolling_statistic(&stats_rolling.charged_ah, latest.charged_ah);
+  stats_rolling.discharged_ah = update_rolling_statistic(&stats_rolling.discharged_ah, latest.discharged_ah);
+
+  // Increment rolling average count
+  stats_rolling_count++;
+  printf("Rolling is now %d percent\n", stats_rolling.aux_soc);
+  printf("Head is now %d percent\n", stats_head->aux_soc);
+  printf("Stats rolling count: %d, stats count: %d\n", stats_rolling_count, stats_count);
+}
+
+void update_historical_statistics() {
+  // Idealy should not happen, unless the update timings are not adequate
+  //  STATS_UPDATE_ROLLING_MS should be less than STATS_UPDATE_HISTORIC_MS
+  //  STATS_UPDATE_HISTORIC_MS should occur at least after the first iteration of rolling updates
+  if(stats_rolling_count <= 1) {
+    update_rolling_statistic_from_latest();
+  } 
+
+  // update latest stats with rolling total before incrementing to the next historic snapshot
+  stats_head->aux_soc = stats_rolling.aux_soc;
+  stats_head->alt_w = stats_rolling.alt_w;
+  stats_head->sol_w = stats_rolling.sol_w;
+  stats_head->charged_ah = stats_rolling.charged_ah;
+  stats_head->discharged_ah = stats_rolling.discharged_ah;
+
   // lazy mans ring buffer
-  if(stats_count < MAX_STATS_HISTORY - 1) {
+  if(stats_count < STATS_MAX_HISTORY - 1) {
     stats_head++;
     stats_count++;
     stats_head->index = stats_count;
   } else {
     // reset to head
-    if(stats_head->index >= MAX_STATS_HISTORY-1) {
+    if(stats_head->index >= STATS_MAX_HISTORY-1) {
       stats_head = (Statshot_t*)&stats_data;
       stats_head->index = 0;
     }
@@ -448,34 +545,59 @@ void update_statistics() {
     }
   }
 
-  // DCC50S
-  stats_head->aux_soc = dcc50s_registers[DCC50S_REG_AUX_SOC];
-  stats_head->alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
+  // Fill using the latest value
+  if(stats_count == 0) {
+    reset_statistics(stats_head);
+  } else {
+    // Reset rolling averages for the next historical period
+    reset_statistics(&stats_rolling);
+    stats_rolling_count = 1;
+  }
+}
 
-  // RVR40
-  stats_head->sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
+bool alarm_update_historic_statistics_callback(struct repeating_timer* t) {
+  printf("ALARM: Historic Statistics timer fired!\n");
 
-  // Computed
-  stats_head->charged_ah = dcc50s_registers[DCC50S_REG_DAY_TOTAL_AH] 
-    + rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS];
-  stats_head->discharged_ah = rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS];
+  update_historical_statistics();
+
+  return true;
+}
+
+int alarms_initialise() {
+  printf("Intialising alarms... ");
+  if(!add_repeating_timer_ms(STATS_UPDATE_HISTORIC_MS, alarm_update_historic_statistics_callback, NULL, &timer_stats_historic)){
+    printf("Unable to initialise historic statistics timer\n");
+    return -1;
+  }
+
+  printf("Done.\n");
+  return 0;
 }
 
 int main() {
+  uint64_t last_epd_update;
+  uint64_t last_rolling_stat_update;
   int state;
 
   stdio_init_all();
  
   gpio_init(LED_PIN);
   gpio_set_dir(LED_PIN, GPIO_OUT);
-
   gpio_init(BTN_PIN);
   gpio_set_dir(BTN_PIN, GPIO_IN);
   gpio_set_irq_enabled_with_callback(BTN_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &btn_handler);
+
   current_page = Statistics; //Overview;
   btn_last_pressed = time_us_64();
+  last_rolling_stat_update = time_us_64() + (STATS_UPDATE_ROLLING_MS * 1000);
+  last_epd_update = time_us_64() + (EPD_REFRESH_RATE_MS * 1000);
 
   state = devices_modbus_init();
+  if(state != 0) {
+    return state;
+  }
+
+  state = alarms_initialise();
   if(state != 0) {
     return state;
   }
@@ -491,30 +613,18 @@ int main() {
     return state;
   }
 
-#ifdef _OFFLINE_TESTING
-    // insert test stats
-    dcc50s_registers[0] = 50;
-    for(uint16_t i = 0; i < MAX_STATS_HISTORY; i++) {
-      dcc50s_registers[0] += 5 - (rand() % 10);
-
-      if(dcc50s_registers[0] > 100)
-        dcc50s_registers[0] = 100;
-
-      update_statistics();
-    }
-#endif
-
   display_init();
   display_state = true;
   display_clear();
-
   busy_wait_ms(500);
 
   gpio_put(LED_PIN, 0);
 
-
+  // Main update loop
   while(1) {
     gpio_put(LED_PIN, 1);
+
+    time_since_boot = time_us_64();
 
     devices_modbus_read_registers(
         RS232_PORT, RS232_RVR40_ADDRESS, RVR40_REG_START, RVR40_REG_END, (uint16_t*)&rvr40_registers);
@@ -522,7 +632,19 @@ int main() {
     devices_modbus_read_registers(
       RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, (uint16_t*)&dcc50s_registers);
 
-    update_page();
+    
+    // update rolling statistics based on latest data received
+    if(time_since_boot > last_rolling_stat_update) {
+      update_rolling_statistic_from_latest();
+
+      last_rolling_stat_update = time_since_boot + (STATS_UPDATE_ROLLING_MS * 1000);
+    }
+    
+    if(time_since_boot > last_epd_update ) {
+      update_page();
+
+      last_epd_update = time_since_boot + (EPD_REFRESH_RATE_MS * 1000);
+    }
     
     gpio_put(LED_PIN, 0);
     sleep_ms(1000);

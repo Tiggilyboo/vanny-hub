@@ -1,3 +1,4 @@
+#include <string.h>
 #include "devices-modbus.h"
 
 const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000; // 1.5t calc_delay_us(1.5f);
@@ -6,8 +7,6 @@ const uint16_t frame_timeout =((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; /
 static char frame[255];
 static uint16_t frame_length = 0;
 static bool frame_ready = false;
-
-#define _OFFLINE_TESTING
 
 inline static void set_rts(bool on) {
   gpio_put(RS485_PIN_RTS, on ? 1 : 0);
@@ -256,8 +255,6 @@ void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t add
     memcpy(returned_data, &dcc50s_test_frame, sizeof(dcc50s_test_frame) / sizeof(dcc50s_test_frame[0]));
     if(dcc50s_test_frame[0] > 1)
       dcc50s_test_frame[0]--;
-    else
-      dcc50s_test_frame[0] = 50;
   }
   else if(inst == RS232_PORT) {
     memcpy(returned_data, &rvr40_test_frame, sizeof(rvr40_test_frame) / sizeof(rvr40_test_frame[0]));

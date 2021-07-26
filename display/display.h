@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <pico/stdlib.h>
 #include <hardware/spi.h>
@@ -23,11 +24,11 @@ typedef struct {
 } coord_t;
 
 int display_init();
-void display_set_buffer(const uint8_t* buffer);
+void display_set_buffer(uint8_t* buffer);
 void display_send_buffer(const uint8_t* buffer, int w, int h, int dtm);
 void display_draw_partial(const uint8_t* black, const uint8_t* red, const coord_t region);
 void display_draw_pixel(uint16_t x, uint16_t y, colour_t colour);
-void display_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+void display_draw_line(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 void display_draw_rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 void display_draw_fill(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 char display_draw_text(char* text, uint16_t x, uint16_t y, colour_t colour);
