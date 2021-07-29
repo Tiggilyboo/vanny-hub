@@ -24,6 +24,7 @@ static bool display_partial_mode;
 // Device State
 static uint16_t dcc50s_registers[DCC50S_REG_END+1];
 static uint16_t rvr40_registers[RVR40_REG_END+1];
+static uint16_t lfp100s_registers[LFP100S_REG_COUNT+1];
 
 char* append_buf(char* s1, char* s2) {
   if(s1 == NULL || s2 == NULL)
@@ -596,12 +597,12 @@ int main() {
   if(state != 0) {
     return state;
   }
-
+/*
   state = alarms_initialise();
   if(state != 0) {
     return state;
   }
-
+*/
   // wait for host... (should be a better way)
   gpio_put(LED_PIN, 0);
   busy_wait_ms(3000);
@@ -612,7 +613,7 @@ int main() {
     printf("Unable to initialise modbus: %d", state); 
     return state;
   }
-
+/*
   display_init();
   display_state = true;
   display_clear();
@@ -621,19 +622,54 @@ int main() {
   gpio_put(LED_PIN, 0);
 
   // Main update loop
-  while(1) {
+  //while(1) {
     gpio_put(LED_PIN, 1);
 
     time_since_boot = time_us_64();
-
+    
     devices_modbus_read_registers(
         RS232_PORT, RS232_RVR40_ADDRESS, RVR40_REG_START, RVR40_REG_END, (uint16_t*)&rvr40_registers);
+*/
 
-    devices_modbus_read_registers(
+    state = devices_modbus_read_registers(
+       RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_START, LFP100S_REG_1_END, (uint16_t*)&lfp100s_registers);
+    sleep_ms(1500);
+
+    state = devices_modbus_read_registers(
+       RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_2_START, LFP100S_REG_2_END, (uint16_t*)&lfp100s_registers);
+    sleep_ms(1500);
+
+    state = devices_modbus_read_registers(
+       RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_3_START, LFP100S_REG_3_END, (uint16_t*)&lfp100s_registers);
+    sleep_ms(1500);
+
+    state = devices_modbus_read_registers(
+       RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_4_START, LFP100S_REG_4_END, (uint16_t*)&lfp100s_registers);
+    sleep_ms(1500);
+  /*
+    uint8_t response_fn;
+    uint16_t offset = 0;
+    while(offset < 300) {
+      printf("@ %d\n", LFP100S_REG_START + offset);
+
+      response_fn = devices_modbus_read_registers(
+        RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_START + offset, 1, (uint16_t*)&lfp100s_registers);
+
+      if(response_fn != 0) {
+        offset++;
+      }
+
+      sleep_ms(1000);
+    }
+    */
+
+    /*
+     devices_modbus_read_registers(
       RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, (uint16_t*)&dcc50s_registers);
+    */
 
-    
     // update rolling statistics based on latest data received
+    /*
     if(time_since_boot > last_rolling_stat_update) {
       update_rolling_statistic_from_latest();
 
@@ -644,10 +680,10 @@ int main() {
       update_page();
 
       last_epd_update = time_since_boot + (EPD_REFRESH_RATE_MS * 1000);
-    }
+    }*/
     
     gpio_put(LED_PIN, 0);
-    sleep_ms(1000);
-  }
+    sleep_ms(10000);
+  //}
 }
 

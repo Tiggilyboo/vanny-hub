@@ -16,11 +16,10 @@
 #define EPD_FULL_REFRESH_AFTER  3
 #define EPD_REFRESH_RATE_MS     5000
 
-#define RS485_DCC50S_ADDRESS    1
-#define RS485_LFP12S_ADDRESS_A  2
-#define RS485_LFP12S_ADDRESS_B  3
+#define RS485_DCC50S_ADDRESS    0x01
+#define RS485_LFP100S_ADDRESS   0xf7
 
-#define RS232_RVR40_ADDRESS     1
+#define RS232_RVR40_ADDRESS     0x01
 
 // TODO: Until we read proper Ah value from unit addresses above...
 #define LFP12S_AH 200

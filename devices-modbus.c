@@ -22,6 +22,8 @@ int devices_modbus_init() {
 
 inline static void on_rx(uart_inst_t* inst) {
   frame_length = 0;
+
+  printf("RX: ");
   while(uart_is_readable_within_us(inst, frame_timeout)) {
     if(frame_length >= 255) {
       printf("RS485 RX frame buffer overflow!\n");
@@ -29,8 +31,10 @@ inline static void on_rx(uart_inst_t* inst) {
     }
 
     frame[frame_length] = uart_getc(inst);
+    printf("%02x ", frame[frame_length]);
     frame_length++;
   }
+  printf("\n");
 
   frame_ready = true;
 }
@@ -62,11 +66,6 @@ int devices_modbus485_uart_init() {
   uart_set_format(RS485_PORT, RS485_DBITS, RS485_SBITS, UART_PARITY_NONE);
   uart_set_fifo_enabled(RS485_PORT, true);
 
-  int RS485_IRQ = RS485_PORT == uart0 ? UART0_IRQ : UART1_IRQ;
-  irq_set_exclusive_handler(RS485_IRQ, on_rs485_rx);
-  irq_set_enabled(RS485_IRQ, true);
-
-  uart_set_irq_enables(RS485_PORT, true, false);
   return 0;
 }
 
@@ -85,11 +84,6 @@ int devices_modbus232_uart_init() {
   uart_set_format(RS232_PORT, RS232_DBITS, RS232_SBITS, UART_PARITY_NONE);
   uart_set_fifo_enabled(RS232_PORT, true);
 
-  int RS232_IRQ = RS232_PORT == uart0 ? UART0_IRQ : UART1_IRQ;
-  irq_set_exclusive_handler(RS232_IRQ, on_rs232_rx);
-  irq_set_enabled(RS232_IRQ, true);
-
-  uart_set_irq_enables(RS232_PORT, true, false);
   return 0;
 }
 
@@ -152,7 +146,7 @@ void build_request(uint8_t unit, uint16_t address, uint16_t count) {
   }
 }
 
-void parse_response(uint16_t* parsed_data) {
+uint8_t parse_response(uint16_t* parsed_data) {
   int i;
   ModbusError err;
 
@@ -178,21 +172,30 @@ void parse_response(uint16_t* parsed_data) {
     return;
   }
 
+  if(frame_length == 5) {
+    const uint8_t expected_error_fn = master.request.frame[1] + 0x80;
+    if(frame[1] == expected_error_fn) {
+      printf("Error code response (%d): Code %d\n", frame[1], frame[2]);
+      return frame[1];
+    }
+  }
+
   switch(master.data.type){
     case MODBUS_HOLDING_REGISTER:
     case MODBUS_INPUT_REGISTER:
     case MODBUS_DISCRETE_INPUT:
+      /*
       printf("Register %x (%d): ", master.data.index, master.data.count);
       for(i = 0; i < master.data.length; i++){
         printf("%02x ", master.data.regs[i]);
       }
       printf("\n");
-      
+      */
       memcpy(parsed_data, master.data.regs, master.data.length);
     
     default:
       printf("Unable to parse response of type: %d", master.data.type);
-      return;
+      return 0;
   }
 }
 
@@ -208,7 +211,7 @@ inline static void flush_rx(uart_inst_t* inst) {
   printf("\n");
 }
 
-void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
+uint8_t devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
   uint16_t timeout = 0;
   char response[255];
 
@@ -217,21 +220,19 @@ void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t add
   flush_rx(inst);
   send_request(inst);
 
+  /*
   if(inst == RS485_PORT) {
     flush_rx(inst);
+  }*/
+
+  if(uart_is_readable_within_us(inst, 1000000)) {
+    on_rx(inst);
+  } else {
+    printf("Timeout.\n");
+    return 0;
   }
 
-  while(!frame_ready) {
-    busy_wait_us(frame_timeout);
-    timeout += frame_timeout;
-
-    if(timeout >= UART_RX_TIMEOUT) {
-      printf("Timeout\n");
-      return;
-    }
-  }
-    
-  parse_response(returned_data);
+  return parse_response(returned_data);
 }
 
 #else 
@@ -247,6 +248,9 @@ static char rvr40_test_frame[] = {
   0x64, 0x00, 0x8e, 0x00, 0x00, 0x14, 0x13, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+static char lfp100s_test_frame[] = {
 };
 
 void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
