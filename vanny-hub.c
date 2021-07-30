@@ -575,6 +575,50 @@ int alarms_initialise() {
   return 0;
 }
 
+void helper_find_addresses() {
+  uint8_t response_fn;
+  uint16_t address = LFP100S_REG_START;
+  uint16_t findings[512];
+  uint16_t last_found = 0;
+
+  while(address < 65530) {
+    printf("@ %d\n", address);
+
+    response_fn = devices_modbus_read_registers(
+      RS485_PORT, RS485_LFP100S_ADDRESS, address, 1, (uint16_t*)&lfp100s_registers);
+
+    printf("Response: %d\n", response_fn);
+
+    if(response_fn == 3) {
+      findings[last_found] = address;
+      last_found++;
+    }
+    if(last_found >= 511) {
+      printf("Address storage memory full\n");
+      break;
+    }
+    if(last_found > 0 && address % 250 == 0) {
+      printf("\nFound [");
+      for(uint16_t a = 0; a < last_found; a++) {
+        printf("%d ", findings[a]);
+      } 
+      printf("]\n");
+      sleep_ms(3000); 
+    } else {
+      sleep_ms(160);
+    }
+    if(response_fn != 0) {
+      address++;
+    }
+  }
+  
+  printf("\nFound [");
+  for(uint16_t a = 0; a < last_found; a++) {
+    printf("%d ", findings[a]);
+  } 
+  printf("]\n");
+} 
+
 int main() {
   uint64_t last_epd_update;
   uint64_t last_rolling_stat_update;
@@ -630,7 +674,6 @@ int main() {
     devices_modbus_read_registers(
         RS232_PORT, RS232_RVR40_ADDRESS, RVR40_REG_START, RVR40_REG_END, (uint16_t*)&rvr40_registers);
 */
-
     state = devices_modbus_read_registers(
        RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_START, LFP100S_REG_1_END, (uint16_t*)&lfp100s_registers);
     sleep_ms(1500);
@@ -646,22 +689,6 @@ int main() {
     state = devices_modbus_read_registers(
        RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_4_START, LFP100S_REG_4_END, (uint16_t*)&lfp100s_registers);
     sleep_ms(1500);
-  /*
-    uint8_t response_fn;
-    uint16_t offset = 0;
-    while(offset < 300) {
-      printf("@ %d\n", LFP100S_REG_START + offset);
-
-      response_fn = devices_modbus_read_registers(
-        RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_START + offset, 1, (uint16_t*)&lfp100s_registers);
-
-      if(response_fn != 0) {
-        offset++;
-      }
-
-      sleep_ms(1000);
-    }
-    */
 
     /*
      devices_modbus_read_registers(

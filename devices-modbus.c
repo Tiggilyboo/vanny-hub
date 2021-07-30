@@ -153,6 +153,13 @@ uint8_t parse_response(uint16_t* parsed_data) {
   master.response.frame = frame;
   master.response.length = frame_length;
 
+  if(frame_length == 5) {
+    if(frame[1] == 0x80 + master.request.frame[1]) {
+      printf("Error code response (%d): Code %d\n", frame[1], frame[2]);
+      return frame[1];
+    }
+  }
+
   err = modbusParseResponse(&master);
   if(err != MODBUS_OK) {
     // TODO
@@ -169,15 +176,7 @@ uint8_t parse_response(uint16_t* parsed_data) {
       default:
         printf("Unhandled exception: %d\n", err);
     }
-    return;
-  }
-
-  if(frame_length == 5) {
-    const uint8_t expected_error_fn = master.request.frame[1] + 0x80;
-    if(frame[1] == expected_error_fn) {
-      printf("Error code response (%d): Code %d\n", frame[1], frame[2]);
-      return frame[1];
-    }
+    return 0;
   }
 
   switch(master.data.type){
@@ -192,6 +191,7 @@ uint8_t parse_response(uint16_t* parsed_data) {
       printf("\n");
       */
       memcpy(parsed_data, master.data.regs, master.data.length);
+      return frame[1];
     
     default:
       printf("Unable to parse response of type: %d", master.data.type);
