@@ -2,7 +2,7 @@
 #include "devices-modbus.h"
 
 const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000; // 1.5t calc_delay_us(1.5f);
-const uint16_t frame_timeout =((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
+const uint16_t frame_timeout = ((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
 
 static char frame[255];
 static uint16_t frame_length = 0;
@@ -220,12 +220,11 @@ uint8_t devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t 
   flush_rx(inst);
   send_request(inst);
 
-  /*
   if(inst == RS485_PORT) {
     flush_rx(inst);
-  }*/
+  }
 
-  if(uart_is_readable_within_us(inst, 1000000)) {
+  if(uart_is_readable_within_us(inst, UART_RX_TIMEOUT)) {
     on_rx(inst);
   } else {
     printf("Timeout.\n");

@@ -18,11 +18,7 @@
 
 #define RS485_DCC50S_ADDRESS    0x01
 #define RS485_LFP100S_ADDRESS   0xf7
-
 #define RS232_RVR40_ADDRESS     0x01
-
-// TODO: Until we read proper Ah value from unit addresses above...
-#define LFP12S_AH 200
 
 #define STATS_MAX_HISTORY        168
 #define STATS_UPDATE_ROLLING_MS  2000  // 60000   // (minutely)

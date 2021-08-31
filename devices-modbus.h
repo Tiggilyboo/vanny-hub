@@ -11,7 +11,7 @@
 #include "devices-rvr40.h"
 #include "devices-lfp10s.h"
 
-#define UART_RX_TIMEOUT 3000000
+#define UART_RX_TIMEOUT 1000000
 
 #define RS485_PORT uart0
 #define RS485_BR 9600
