@@ -26,89 +26,28 @@ static uint16_t dcc50s_registers[DCC50S_REG_END+1];
 static uint16_t rvr40_registers[RVR40_REG_END+1];
 static uint16_t lfp100s_registers[LFP100S_REG_COUNT+1];
 
-char* append_buf(char* s1, char* s2) {
-  if(s1 == NULL || s2 == NULL)
-    return NULL;
-
-  int n = sizeof(s1);
-  char* dest = s1;
-  while(*dest != '\0'){
-    dest++;
-  }
-  while(n--){
-    if(!(*dest++ = *s2++))
-      return s1;
-  }
-  *dest = '\0';
-
-  return s1;
-}
-
-void get_charge_status(char* buffer, uint16_t dcc50s_state, uint16_t rvr40_state) {
-  bool charging = false;
-
-  if ((dcc50s_state & DCC50S_CHARGE_STATE_SOLAR) > 0) {
-    append_buf(buffer, "Solar ");
-    charging = true;
-  }
-  if ((dcc50s_state & DCC50S_CHARGE_STATE_ALT) > 0) {
-    append_buf(buffer, "Altenator ");
-    charging = true;
-  }
-  if ((rvr40_state & (1 << RVR40_CHARGE_ACTIVE)) > 0) {
-    append_buf(buffer, "Solar ");
-    charging = true;
-  }
-  if(!charging){
-    printf("No charge (RVR state): %d\n", rvr40_state);
-    sprintf(buffer, "No charge");
-    return;
-  }
-
-  if ((dcc50s_state & DCC50S_CHARGE_STATE_EQ) > 0
-      || (rvr40_state & RVR40_CHARGE_EQ) > 0) {
-    append_buf(buffer, "=");
-  }
-  if ((dcc50s_state & DCC50S_CHARGE_STATE_BOOST) > 0
-      || (rvr40_state & RVR40_CHARGE_BOOST) > 0) {
-    append_buf(buffer, "++");
-  }
-  if ((dcc50s_state & DCC50S_CHARGE_STATE_FLOAT) > 0
-      || (rvr40_state & RVR40_CHARGE_FLOAT) > 0) {
-    append_buf(buffer, "~");
-  }
-  if ((dcc50s_state & DCC50S_CHARGE_STATE_LIMITED) > 0
-      || (rvr40_state & RVR40_CHARGE_LIMITED) > 0) {
-    append_buf(buffer, "+");
-  }
-}
-
-void get_temperatures(uint16_t state, uint16_t* internal, uint16_t* aux) {
-  *internal = (state >> 8);
-  *aux = (state & 0xff);
-}
-
-uint16_t get_max_battery_capacity() {
+float get_max_battery_capacity() {
   uint16_t reg1 = lfp100s_registers[LFP100S_REG_CAPACITY_1];
   uint16_t reg2 = lfp100s_registers[LFP100S_REG_CAPACITY_2];
   float battery_max_capacity = (float)(reg1 << 15 | reg2 >> 1) * 0.002;
   if(battery_max_capacity == 0.0) {
-    battery_max_capacity = 200.0;
+    battery_max_capacity = 100.0;
   }
 
-  return (uint16_t)battery_max_capacity;
+  return battery_max_capacity;
 }
 
-uint16_t get_battery_capacity() {
+float get_battery_capacity() {
   uint16_t reg1 = lfp100s_registers[LFP100S_REG_CAPACITY_1];
   uint16_t reg2 = lfp100s_registers[LFP100S_REG_CAPACITY_2];
-  return (reg1 << 15 | reg2 >> 1) * 0.002;
+
+  return (float)(reg1 << 15 | reg2 >> 1) * 0.002;
 }
 
 float get_battery_percentage() {
-  uint16_t max = get_max_battery_capacity();
-  uint16_t cap = get_battery_capacity();
-  float percent = ((float)cap / (float)max) * 100.0;
+  float max = get_max_battery_capacity();
+  float cap = get_battery_capacity();
+  float percent = (cap / max) * 100.0;
 
   return percent;
 }
@@ -117,20 +56,36 @@ float get_battery_amps() {
   float amps = (float)lfp100s_registers[LFP100S_REG_LOAD_A];
 
   if(amps < 61440)
-    return amps / 100.0;
+    return (float)amps / 100.0;
   else
-    return (amps - 65535) / 100.0;
+    return (float)(amps - 65535) / 100.0;
 }
 
 float get_battery_voltage() {
-  return (float)lfp100s_registers[LFP100S_REG_VOLTAGE] / 10.0;
+  float v = (float)lfp100s_registers[LFP100S_REG_VOLTAGE] / 10.0;
+
+  return v;
 }
 
+void get_temperatures(uint16_t state, uint16_t* internal, uint16_t* aux) {
+  *internal = (state >> 8);
+  *aux = (state & 0xff);
+}
+
+void get_charge_status(char* buffer) { 
+  float load_amps = get_battery_amps();
+  
+  if(load_amps > 0) {
+    sprintf(buffer, "Charging");
+  } else {
+    sprintf(buffer, "Discharging");
+  }
+}
 
 void update_page_overview() {
   char line[32];
 
-  uint16_t aux_soc = (uint16_t)get_battery_percentage();
+  float aux_soc = get_battery_percentage();
   float aux_v = get_battery_voltage();
 
   uint16_t alt_w = dcc50s_registers[DCC50S_REG_ALT_W];
@@ -140,13 +95,13 @@ void update_page_overview() {
   uint16_t sol_w = rvr40_registers[RVR40_REG_SOLAR_W];
   uint16_t rvr_charge_state = rvr40_registers[RVR40_REG_CHARGE_STATE];
 
-  get_charge_status((char*)&line, dcc_charge_state, rvr_charge_state);
+  get_charge_status((char*)&line);
   display_draw_title(line, 5, 12, Black);
 
   // Battery SOC% and voltage
-  sprintf((char*)&line, "%d%%", aux_soc); 
+  sprintf((char*)&line, "%.0f%%", aux_soc); 
   display_draw_title(line, DISPLAY_H / 2 - 5, DISPLAY_W / 3 + 3, Black);
-  sprintf((char*)&line, "%.*fV", 2, aux_v);
+  sprintf((char*)&line, "%.2fV", aux_v);
   display_draw_text(line, DISPLAY_H / 2, DISPLAY_W / 3 + 30, Black);
 
   display_draw_text("Altenator", 10, 50, Black);
@@ -257,48 +212,58 @@ void update_page_overview_battery() {
   char line[32];
   
   // Draw battery
-  float percent = (float)get_battery_percentage();
-  uint16_t battery_max_capacity = get_max_battery_capacity();
-  uint16_t battery_width = (uint16_t)(((DISPLAY_H - 20) - (third_x * 2 - 2)) * percent);
+  float percent = get_battery_percentage();
+  float unit_percent = percent / 100.0;
+  float battery_capacity = get_battery_capacity();
+  uint16_t battery_width = (uint16_t)(((DISPLAY_H - 20) - (third_x * 2 - 4)) * unit_percent);
 
   display_draw_rect(third_x * 2, third_y, DISPLAY_H - 20, third_y * 2);
-  if(percent > 0.25) {
+  if(percent > 25.0) {
     display_set_buffer(display_buffer_black);
   } else {
     display_set_buffer(display_buffer_red);
   }
   display_draw_fill(third_x * 2 + 2, third_y + 2, third_x * 2 + battery_width, third_y * 2 - 1);
 
-  // Draw Ah meter
-  sprintf((char*)&line, "%d / %d Ah", (uint16_t)(battery_max_capacity * percent), (uint16_t)battery_max_capacity);
-  display_draw_text(line, third_x * 2, third_y * 1 - 20, Black);
-
   // Determine wattage charge over all units and display it
   float load_amps = get_battery_amps();
   float battery_voltage = get_battery_voltage();
   float load_w = load_amps * battery_voltage;
 
-  if(load_w > 0) {
-    sprintf((char*)&line, "+%dW", load_w);
-    
-    display_set_buffer(display_buffer_black);
-    display_draw_text(line, third_x * 2, third_y * 2 + 4, Black);
-  }
+  if(load_w > 0) 
+    sprintf((char*)&line, "+%.2fW", load_w);
+  else
+    sprintf((char*)&line, "%.2fW", load_w);
+  display_set_buffer(display_buffer_black);
+  display_draw_text(line, third_x * 2, third_y - 20, Black);
 
   // Determine time until discharged or full
   if(load_w != 0) {
     if(load_w < 0) {
-      float hrs_left = ((1 - percent) * battery_max_capacity) / load_w;
+      float hrs_left = 10.0 * battery_capacity / -load_w;
       if(hrs_left != INFINITY) {
-        sprintf((char*)&line, "empty in %.2fh", hrs_left);
-        display_set_buffer(display_buffer_red);
-        display_draw_text(line, third_x * 2, third_y * 2 + 10, Red);
+        if(hrs_left < 24) {
+          sprintf((char*)&line, "empty %.2fh", hrs_left);
+        } else {
+          sprintf((char*)&line, "empty %.2fd", hrs_left / 24.0);
+        }
+        if(hrs_left < 12) {
+          display_set_buffer(display_buffer_red);
+          display_draw_text(line, third_x * 2, third_y * 2 + 10, Red);
+        } else {
+          display_set_buffer(display_buffer_black);
+          display_draw_text(line, third_x * 2, third_y * 2 + 10, Black);
+        }
       }
     } else {
-      float hrs_full = ((1 - percent) * battery_max_capacity) / load_w;
+      float hrs_full = 10.0 * battery_capacity / load_w;
       
       if(hrs_full != INFINITY && hrs_full != 0) {
-        sprintf((char*)&line, "full in %.2fh", hrs_full);
+        if(hrs_full < 24) {
+          sprintf((char*)&line, "full %.2fh", hrs_full);
+        } else {
+          sprintf((char*)&line, "full %.2fd", hrs_full / 24.0);
+        }
         display_set_buffer(display_buffer_black);
         display_draw_text(line, third_x * 2, third_y * 2 + 10, Black);
       }
@@ -494,9 +459,11 @@ inline static uint16_t update_rolling_statistic(uint16_t* avg, uint16_t new_valu
 }
 
 Statshot_t get_latest_stats() {
+  uint16_t battery_percent = (uint16_t)get_battery_percentage();
+
   Statshot_t latest = {
     (uint8_t)(stats_rolling_count + 1),
-    dcc50s_registers[DCC50S_REG_AUX_SOC],
+    battery_percent,
     dcc50s_registers[DCC50S_REG_ALT_W],
     rvr40_registers[RVR40_REG_SOLAR_W],
     dcc50s_registers[DCC50S_REG_DAY_TOTAL_AH] + rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS],
@@ -522,7 +489,9 @@ void update_rolling_statistic_from_latest() {
   if(stats_rolling_count <= 1) {
     reset_statistics(&stats_rolling);  
   }
+#ifdef _VERBOSE
   printf("Updating rolling with latest %d percent\n", latest.aux_soc);
+#endif
 
   // Update using rolling average values
   stats_rolling.aux_soc = update_rolling_statistic(&stats_rolling.aux_soc, latest.aux_soc);
@@ -533,9 +502,11 @@ void update_rolling_statistic_from_latest() {
 
   // Increment rolling average count
   stats_rolling_count++;
+#ifdef _VERBOSE
   printf("Rolling is now %d percent\n", stats_rolling.aux_soc);
   printf("Head is now %d percent\n", stats_head->aux_soc);
   printf("Stats rolling count: %d, stats count: %d\n", stats_rolling_count, stats_count);
+#endif
 }
 
 void update_historical_statistics() {
@@ -622,12 +593,11 @@ int main() {
   if(state != 0) {
     return state;
   }
-/*
   state = alarms_initialise();
   if(state != 0) {
     return state;
   }
-*/
+
   // wait for host... (should be a better way)
   gpio_put(LED_PIN, 0);
   busy_wait_ms(3000);
@@ -643,7 +613,6 @@ int main() {
   display_state = true;
   display_clear();
   busy_wait_ms(500);
-
   gpio_put(LED_PIN, 0);
 
   // Main update loop
@@ -657,11 +626,13 @@ int main() {
     if(state != 3) {
       printf("RS232 failed to read registers, returned: %d\n", state);
     }
+
     state = devices_modbus_read_registers(
        RS485_PORT, RS485_LFP100S_ADDRESS, LFP100S_REG_START, LFP100S_REG_END, (uint16_t*)&lfp100s_registers);
     if(state != 3) {
       printf("RS485 (LFP100S) failed to read registers, returned: %d\n", state);
     }
+
     state = devices_modbus_read_registers(
       RS485_PORT, RS485_DCC50S_ADDRESS, DCC50S_REG_START, DCC50S_REG_END, (uint16_t*)&dcc50s_registers);
     if(state != 3) {
@@ -682,7 +653,7 @@ int main() {
     }
     
     gpio_put(LED_PIN, 0);
-    sleep_ms(2000);
+    sleep_ms(5000);
   }
 }
 

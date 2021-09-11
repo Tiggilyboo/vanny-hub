@@ -21,8 +21,8 @@
 #define RS232_RVR40_ADDRESS     0x01
 
 #define STATS_MAX_HISTORY        168
-#define STATS_UPDATE_ROLLING_MS  2000  // 60000   // (minutely)
-#define STATS_UPDATE_HISTORIC_MS 25000 // 3600000  // (hourly)
+#define STATS_UPDATE_ROLLING_MS  60000   // (minutely)
+#define STATS_UPDATE_HISTORIC_MS 3600000  // (hourly)
   
 typedef enum {
   Overview,
