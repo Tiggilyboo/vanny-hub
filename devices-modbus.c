@@ -1,12 +1,11 @@
 #include <string.h>
 #include "devices-modbus.h"
 
-const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000; // 1.5t calc_delay_us(1.5f);
-const uint16_t frame_timeout = ((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; // 3.5t calc_delay_us(3.5f);
+const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000; 
+const uint16_t frame_timeout = ((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; 
 
 static char frame[255];
 static uint16_t frame_length = 0;
-static bool frame_ready = false;
 
 inline static void set_rts(bool on) {
   gpio_put(RS485_PIN_RTS, on ? 1 : 0);
@@ -23,7 +22,9 @@ int devices_modbus_init() {
 inline static void on_rx(uart_inst_t* inst) {
   frame_length = 0;
 
+#ifdef _VERBOSE
   printf("RX: ");
+#endif
   while(uart_is_readable_within_us(inst, frame_timeout)) {
     if(frame_length >= 255) {
       printf("RS485 RX frame buffer overflow!\n");
@@ -31,24 +32,12 @@ inline static void on_rx(uart_inst_t* inst) {
     }
 
     frame[frame_length] = uart_getc(inst);
+#ifdef _VERBOSE
     printf("%02x ", frame[frame_length]);
+#endif
     frame_length++;
   }
   printf("\n");
-
-  frame_ready = true;
-}
-
-static void on_rs485_rx() {
-  printf("Got rs485 irq\n");
-  on_rx(RS485_PORT);
-  printf("rs485 irq done\n");
-}
-
-static void on_rs232_rx() {
-  printf("Got rs232 irq\n");
-  on_rx(RS232_PORT);
-  printf("rs232 irq done\n");
 }
 
 int devices_modbus485_uart_init() {
@@ -114,7 +103,6 @@ void send_request(uart_inst_t* inst) {
   for(i = 0; i < 255; i++) {
     frame[i] = 0;
   }
-  frame_ready = false;
 
   if(inst == RS485_PORT) {
     set_rts(true);
@@ -133,8 +121,7 @@ void send_request(uart_inst_t* inst) {
 }
 
 void build_request(uint8_t unit, uint16_t address, uint16_t count) { 
-  uint8_t resp;
-  resp = modbusBuildRequest03(&master, unit, address, count);
+  uint8_t resp = modbusBuildRequest03(&master, unit, address, count);
   if(resp != MODBUS_OK) {
     printf("Unable to build request: %d\n", resp);
     switch (resp) {
@@ -183,13 +170,13 @@ uint8_t parse_response(uint16_t* parsed_data) {
     case MODBUS_HOLDING_REGISTER:
     case MODBUS_INPUT_REGISTER:
     case MODBUS_DISCRETE_INPUT:
-      /*
+#ifdef _VERBOSE
       printf("Register %x (%d): ", master.data.index, master.data.count);
       for(i = 0; i < master.data.length; i++){
         printf("%02x ", master.data.regs[i]);
       }
       printf("\n");
-      */
+#endif
       memcpy(parsed_data, master.data.regs, master.data.length);
       return frame[1];
     
@@ -199,24 +186,23 @@ uint8_t parse_response(uint16_t* parsed_data) {
   }
 }
 
-
-#ifndef _OFFLINE_TESTING
-
 inline static void flush_rx(uart_inst_t* inst) {
+#ifdef _VERBOSE
   printf("Flushing uart%d... ", uart_get_index(inst));
+#endif
 
   while(uart_is_readable(inst)) {
-    printf("%02x", uart_getc(inst)); 
+    char flushed = uart_getc(inst);
+#ifdef _VERBOSE
+    printf("%02x", flushed); 
+#endif
   }
   printf("\n");
 }
 
 uint8_t devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
-  uint16_t timeout = 0;
-  char response[255];
 
   build_request(unit, address, count);
-
   flush_rx(inst);
   send_request(inst);
 
@@ -234,34 +220,3 @@ uint8_t devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t 
   return parse_response(returned_data);
 }
 
-#else 
-
-static char dcc50s_test_frame[] = {
-   0x64,0x00,0x8e,0x00,0x00,0x14,0x13,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x91,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,
-   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
-};
-
-static char rvr40_test_frame[] = {
-  0x64, 0x00, 0x8e, 0x00, 0x00, 0x14, 0x13, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-static char lfp100s_test_frame[] = {
-};
-
-void devices_modbus_read_registers(uart_inst_t* inst, uint8_t unit, uint16_t address, uint16_t count, uint16_t* returned_data) {
-
-  if(inst == RS485_PORT) {
-    memcpy(returned_data, &dcc50s_test_frame, sizeof(dcc50s_test_frame) / sizeof(dcc50s_test_frame[0]));
-    if(dcc50s_test_frame[0] > 1)
-      dcc50s_test_frame[0]--;
-  }
-  else if(inst == RS232_PORT) {
-    memcpy(returned_data, &rvr40_test_frame, sizeof(rvr40_test_frame) / sizeof(rvr40_test_frame[0]));
-  }
-}
-
-#endif

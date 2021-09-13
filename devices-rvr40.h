@@ -31,7 +31,7 @@
 #define RVR40_REG_CHARGE_STATE      28
 #define RVR40_REG_ERR_1             29
 #define RVR40_REG_ERR_2             30
-#define RVR40_REG_END               30
+#define RVR40_REG_END               31
 
 // For RVR40_REG_CHARGE_STATE
 #define RVR40_CHARGE_DEACTIVE   0
