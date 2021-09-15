@@ -26,7 +26,6 @@ This is a DIY open source project of my own creation, and as such take no respon
 
 `devices-modbus.h` contains the various pinouts for the Raspberry Pi Pico UART pins. It makes use of both UARTs (one for modbus 485, and one for 232).
 
-The SPI pinout is for the display is located in `display/display.h`
 ```c
 #define UART_RX_TIMEOUT 1000000
 
@@ -47,8 +46,6 @@ The SPI pinout is for the display is located in `display/display.h`
 ```
 
 `vanny-hub.h` contains the modbus node configuration, as well as refresh rates and statistic storing rates, as well as the GPIO pin used for changing the screen view.
-
-Defaults:
 
 ```c
 #define _VERBOSE
