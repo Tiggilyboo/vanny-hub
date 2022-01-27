@@ -3,7 +3,7 @@
 ![Hub](https://i.imgur.com/v27shz1.jpg)
 
 ## What?
-My van's embedded monitoring platform, using Modbus over RS-485 and RS-232 on the Raspberry Pi Pico microcontroller. 
+My van's embedded monitoring platform, using Modbus over RS-485 and RS-232 on the Raspberry Pi Pico microcontroller.
 
 This is a DIY open source project of my own creation, and as such take no responsibility for this code...
 
@@ -29,20 +29,20 @@ This is a DIY open source project of my own creation, and as such take no respon
 ```c
 #define UART_RX_TIMEOUT 1000000
 
-#define RS485_PORT uart0
-#define RS485_BR 9600
-#define RS485_DBITS 8
-#define RS485_SBITS 1
-#define RS485_PIN_TX 0
-#define RS485_PIN_RX 1
-#define RS485_PIN_RTS 22
+#define RS485_PORT      uart0
+#define RS485_BR        9600
+#define RS485_DBITS     8
+#define RS485_SBITS     1
+#define RS485_PIN_TX    0
+#define RS485_PIN_RX    1
+#define RS485_PIN_RTS   22
 
-#define RS232_PORT uart1
-#define RS232_BR 9600
-#define RS232_DBITS 8
-#define RS232_SBITS 1
-#define RS232_PIN_TX 4
-#define RS232_PIN_RX 5
+#define RS232_PORT      uart1
+#define RS232_BR        9600
+#define RS232_DBITS     8
+#define RS232_SBITS     1
+#define RS232_PIN_TX    4
+#define RS232_PIN_RX    5
 ```
 
 `vanny-hub.h` contains the modbus node configuration, as well as refresh rates and statistic storing rates, as well as the GPIO pin used for changing the screen view.
@@ -54,16 +54,16 @@ This is a DIY open source project of my own creation, and as such take no respon
 #define BTN_PIN 21
 
 //#define EPD_UPDATE_PARTIAL
-#define EPD_FULL_REFRESH_AFTER  3
-#define EPD_REFRESH_RATE_MS     60000
+#define EPD_FULL_REFRESH_AFTER    3
+#define EPD_REFRESH_RATE_MS       60000
 
-#define RS485_DCC50S_ADDRESS    0x01
-#define RS485_LFP100S_ADDRESS   0xf7
-#define RS232_RVR40_ADDRESS     0x01
+#define RS485_DCC50S_ADDRESS      0x01
+#define RS485_LFP100S_ADDRESS     0xf7
+#define RS232_RVR40_ADDRESS       0x01
 
-#define STATS_MAX_HISTORY        168
-#define STATS_UPDATE_ROLLING_MS  10000     // (secondly)
-#define STATS_UPDATE_HISTORIC_MS 3600000  // (hourly)
+#define STATS_MAX_HISTORY         168
+#define STATS_UPDATE_ROLLING_MS   10000     // (secondly)
+#define STATS_UPDATE_HISTORIC_MS  3600000  // (hourly)
 ```
 
 And finally, the display SPI pinout configuration is defined in `display/display-ws-eink.h`

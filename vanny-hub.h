@@ -22,7 +22,7 @@
 #define STATS_MAX_HISTORY        168
 #define STATS_UPDATE_ROLLING_MS  10000     // (secondly)
 #define STATS_UPDATE_HISTORIC_MS 3600000  // (hourly)
-  
+
 typedef enum {
   Overview,
   Solar,

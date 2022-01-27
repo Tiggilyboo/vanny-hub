@@ -130,3 +130,4 @@ dmypy.json
 
 # CMake output for clangd
 compile_commands.json
+.vscode/

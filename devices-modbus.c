@@ -1,8 +1,8 @@
 #include <string.h>
 #include "devices-modbus.h"
 
-const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000; 
-const uint16_t frame_timeout = ((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000; 
+const uint16_t char_delay = ((1 / (float)RS485_BR) * 11.f * 1.5f) * 1000000;
+const uint16_t frame_timeout = ((1 / (float)RS485_BR) * 11.f * 3.5f) * 1000000;
 
 static char frame[255];
 static uint16_t frame_length = 0;
@@ -44,10 +44,10 @@ int devices_modbus485_uart_init() {
   uint16_t state;
 
   uart_init(RS485_PORT, RS485_BR);
-  
+
   gpio_set_function(RS485_PIN_TX, GPIO_FUNC_UART);
   gpio_set_function(RS485_PIN_RX, GPIO_FUNC_UART);
-  
+
   state = uart_set_baudrate(RS485_PORT, RS485_BR);
   printf("RS485 - Actual baudrate set to: %d\n", state);
 
@@ -120,7 +120,7 @@ void send_request(uart_inst_t* inst) {
   printf(" Sent.\n");
 }
 
-void build_request(uint8_t unit, uint16_t address, uint16_t count) { 
+void build_request(uint8_t unit, uint16_t address, uint16_t count) {
   uint8_t resp = modbusBuildRequest03(&master, unit, address, count);
   if(resp != MODBUS_OK) {
     printf("Unable to build request: %d\n", resp);
@@ -179,7 +179,7 @@ uint8_t parse_response(uint16_t* parsed_data) {
 #endif
       memcpy(parsed_data, master.data.regs, master.data.length);
       return frame[1];
-    
+
     default:
       printf("Unable to parse response of type: %d", master.data.type);
       return 0;
@@ -194,7 +194,7 @@ inline static void flush_rx(uart_inst_t* inst) {
   while(uart_is_readable(inst)) {
     char flushed = uart_getc(inst);
 #ifdef _VERBOSE
-    printf("%02x", flushed); 
+    printf("%02x", flushed);
 #endif
   }
   printf("\n");

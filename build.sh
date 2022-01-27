@@ -8,7 +8,7 @@ cd build
 
 
 if [ $# -gt 0 ]
-then 
+then
   echo "Making custom build $1..."
   cmake -DCMAKE_BUILD_TYPE=$1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ..
 else
