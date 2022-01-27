@@ -24,4 +24,3 @@ float battery_capacity();
 float battery_percentage();
 float battery_amperes();
 float battery_voltage();
-

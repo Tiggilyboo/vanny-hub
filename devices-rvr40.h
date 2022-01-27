@@ -13,7 +13,7 @@
 #define RVR40_REG_SOLAR_W           9
 #define RVR40_REG_DAY_MIN_V         11
 #define RVR40_REG_DAY_AUX_MAX_V     12
-#define RVR40_REG_DAY_CHG_MAX_A     13 
+#define RVR40_REG_DAY_CHG_MAX_A     13
 #define RVR40_REG_DAY_DCHG_MAX_A    14
 #define RVR40_REG_DAY_CHG_MAX_W     15
 #define RVR40_REG_DAY_DCHG_MAX_W    16

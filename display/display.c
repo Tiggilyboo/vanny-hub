@@ -42,7 +42,7 @@ void display_read_busy() {
     display_send_command(EPD_GET_STATUS);
     busy = gpio_get(SPI_PIN_BSY);
     busy = !(busy & 0x01);
-    
+
     busy_wait_ms(1);
     timeout += 1;
     if(timeout > SCREEN_BUSY_TIMEOUT) {
@@ -50,7 +50,7 @@ void display_read_busy() {
       display_wake();
       break;
     }
-  } 
+  }
   while(busy);
   printf("Done.\n");
 }
@@ -88,7 +88,7 @@ int display_init() {
 }
 
 void display_set_buffer(uint8_t* buffer) {
-  display_buffer = buffer;  
+  display_buffer = buffer;
 }
 
 void display_draw_pixel(uint16_t x_start, uint16_t y_start, colour_t colour) {
@@ -100,9 +100,9 @@ void display_draw_pixel(uint16_t x_start, uint16_t y_start, colour_t colour) {
     printf("Pixel outside bounds (%d, %d)\n", x, y);
     return;
   }
-  
+
   uint32_t addr = x / 8 + y * SCREEN_W;
-  uint8_t data; 
+  uint8_t data;
 
   switch(colour) {
     case Black:
@@ -126,16 +126,16 @@ void display_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1) {
     int16_t t = x0;
     x0 = y0;
     y0 = t;
-    
+
     t = x1;
     x1 = y1;
     y1 = t;
-    
+
     if (x0 > x1) {
       t = x0;
       x0 = x1;
       x1 = t;
-      
+
       t = y0;
       y0 = y1;
       y1 = t;
@@ -146,7 +146,7 @@ void display_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1) {
   const int dy = abs(y1 - y0);
   int16_t err = dx / 2;
   const int16_t ystep = (y0 < y1) ? 1 : -1;
-  
+
   for(; x0 <= x1; x0++) {
     if(steep) {
       if(y0 > DISPLAY_H || x0 > DISPLAY_W) {
@@ -254,7 +254,7 @@ void display_draw_xbitmap(int16_t x_point, uint16_t y_point, uint16_t w, uint16_
         data >>= 1;
       else
         data = bitmap[y * bwidth + x / 8];
-      
+
       if(data & 0x01)
         display_draw_pixel(x_point + x, y_point, Black);
     }
@@ -287,8 +287,8 @@ void display_fill_colour(colour_t colour) {
 
 void display_send_buffer(const uint8_t* buffer, int w, int h, int dtm) {
   uint16_t size = w * h;
-  uint8_t cmd = (dtm == 1) 
-    ? EPD_DATA_START_TRANSMISSION_1 
+  uint8_t cmd = (dtm == 1)
+    ? EPD_DATA_START_TRANSMISSION_1
     : EPD_DATA_START_TRANSMISSION_2;
 
   display_send_command(cmd);
@@ -344,25 +344,25 @@ void display_sleep() {
 
 void display_wake() {
   display_reset();
- 
+
   display_send_command(EPD_BOOSTER_SOFT_START);
   display_send_data(0x17);
   display_send_data(0x17);
   display_send_data(0x17);
   display_send_command(EPD_POWER_ON);
- 
+
   display_send_command(EPD_PANEL_SETTING);
   display_send_data(0x0f);
   display_send_data(0x89);
 
   //display_send_command(EPD_PLL_CONTROL);
   //display_send_data(0x3C);
-  
+
   display_send_command(EPD_TCON_RESOLUTION);
   display_send_data(0x80);
   display_send_data(0x01);
   display_send_data(0x28);
-  
+
   display_send_command(EPD_VCOM_AND_DATA_INTERVAL_SETTING);
   display_send_data(0x77);
 

@@ -1,4 +1,4 @@
-add_library(display 
+add_library(display
   font.c
   display.c
 )

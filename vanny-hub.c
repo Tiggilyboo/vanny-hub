@@ -88,9 +88,9 @@ void calculate_temperatures(uint16_t state, uint16_t* internal, uint16_t* aux) {
   *aux = (state & 0xff);
 }
 
-void get_charge_status(char* buffer) { 
+void get_charge_status(char* buffer) {
   float load_amps = battery_amperes();
-  
+
   if(load_amps > 0) {
     sprintf(buffer, "Charging");
   } else {
@@ -112,7 +112,7 @@ void update_page_overview() {
   display_draw_title(line, 5, 12, Black);
 
   // Battery SOC% and voltage
-  sprintf((char*)&line, "%.0f%%", bat_soc); 
+  sprintf((char*)&line, "%.0f%%", bat_soc);
   display_draw_title(line, DISPLAY_H / 2 - 5, DISPLAY_W / 3 + 3, Black);
   sprintf((char*)&line, "%.2fV", bat_v);
   display_draw_text(line, DISPLAY_H / 2, DISPLAY_W / 3 + 30, Black);
@@ -149,11 +149,11 @@ void update_page_solar() {
   display_draw_text("Charged", DISPLAY_H / 2 + 25, 45, Black);
   display_draw_text("Discharged", DISPLAY_H / 2 + 25, 60, Black);
 
-  sprintf((char*)&line, "%dAh", 
+  sprintf((char*)&line, "%dAh",
       rvr40_registers[RVR40_REG_DAY_CHG_AMPHRS]);
   display_draw_text(line, DISPLAY_H - 35, 45, Black);
-  
-  sprintf((char*)&line, "%dAh", 
+
+  sprintf((char*)&line, "%dAh",
       rvr40_registers[RVR40_REG_DAY_DCHG_AMPHRS]);
   display_draw_text(line, DISPLAY_H - 35, 60, Black);
 
@@ -187,7 +187,7 @@ void update_page_altenator() {
 
   sprintf((char*)&line, "%dAh today", day_total_ah);
   display_draw_text(line, DISPLAY_H / 2 + 25, 65, Black);
-  
+
   display_draw_text("Temperatures (C)", 10, 40, Black);
   calculate_temperatures(temperatures, &temperature_ctrl, &temperature_aux);
   sprintf((char*)&line, "DCC: %d, Bat: %d", temperature_ctrl, temperature_aux);
@@ -223,7 +223,7 @@ void update_page_overview_battery() {
   const uint16_t third_x = DISPLAY_H / 3;
   const uint16_t third_y = DISPLAY_W / 3;
   char line[32];
-  
+
   float percent = battery_percentage();
   float capacity = battery_capacity();
   float unit_percent = percent / 100.0;
@@ -241,7 +241,7 @@ void update_page_overview_battery() {
   // Use rolling average load in watts over the last STATS_UPDATE_ROLLING_MS period
   // Can use battery_load_watts() for current point in time of update
   float load_w = stats_rolling.load_w;
-  if(load_w > 0) 
+  if(load_w > 0)
     sprintf((char*)&line, "+%.2fW", load_w);
   else
     sprintf((char*)&line, "%.2fW", load_w);
@@ -268,7 +268,7 @@ void update_page_overview_battery() {
       }
     } else {
       float hrs_full = 10.0 * capacity / load_w;
-      
+
       if(hrs_full != INFINITY && hrs_full != 0) {
         if(hrs_full < 24) {
           sprintf((char*)&line, "full %.2fh", hrs_full);
@@ -293,7 +293,7 @@ void draw_stat(uint16_t i, uint16_t plot_x_start, uint16_t plot_x_iter, uint16_t
 
   if(i > 0) {
     uint16_t last_value = plot_height - ((float)stats_data[i - 1].bat_soc / 100.f) * plot_height;
-    
+
     display_set_buffer(display_buffer_black);
     display_draw_line(x - plot_x_iter, last_value, x, value);
   }
@@ -305,10 +305,10 @@ void draw_stat(uint16_t i, uint16_t plot_x_start, uint16_t plot_x_iter, uint16_t
         sum += stats_data[v].bat_soc;
       }
       avg = plot_height - ((float)sum / 24.f) * plot_height;
-      
+
       display_set_buffer(display_buffer_red);
       display_draw_fill(x - 1, avg - 1, x + 2, avg + 2);
-      
+
       sprintf((char*)line, "%d", (stats_count - i) / 24);
       display_set_buffer(display_buffer_black);
       display_draw_text(line, x, plot_height + 7, Black);
@@ -381,11 +381,11 @@ void update_page() {
     display_refresh_count++;
   }
 #endif
-  
+
   update_menu();
 
   switch(current_page) {
-    case Overview: 
+    case Overview:
       update_page_overview();
       update_page_overview_battery();
       break;
@@ -411,7 +411,7 @@ void update_page() {
     display_wake();
     display_state = true;
   }
-  
+
 #ifdef EPD_UPDATE_PARTIAL
   if(!display_partial_mode) {
 #endif
@@ -455,7 +455,7 @@ void btn_handler(uint gpio, uint32_t events) {
   }
 }
 
-// TODO: C generics or something? 
+// TODO: C generics or something?
 inline static float update_rolling_statistic_f(float* avg, float new_value) {
   if(stats_rolling_count == 0)
     return *avg;
@@ -502,10 +502,10 @@ void reset_statistics(Statshot_t* stat) {
 
 void update_rolling_statistic_from_latest() {
   Statshot_t latest = get_latest_stats();
-  
+
   // First update?
   if(stats_rolling_count <= 1) {
-    reset_statistics(&stats_rolling);  
+    reset_statistics(&stats_rolling);
   }
 #ifdef _VERBOSE
   printf("Updating rolling with latest %f percent\n", latest.bat_soc);
@@ -535,7 +535,7 @@ void update_historical_statistics() {
   //  STATS_UPDATE_HISTORIC_MS should occur at least after the first iteration of rolling updates
   if(stats_rolling_count <= 1) {
     update_rolling_statistic_from_latest();
-  } 
+  }
 
   // update latest stats with rolling total before incrementing to the next historic snapshot
   stats_head->bat_soc = stats_rolling.bat_soc;
@@ -603,7 +603,7 @@ void retreive_data_and_update_rolling() {
   if(state != 3) {
     printf("RS485 (DCC50S) failed to read registers, returned: %d\n", state);
   }
-  
+
   // update rolling statistics based on latest data received
   update_rolling_statistic_from_latest();
 }
@@ -637,7 +637,7 @@ int main() {
   uint64_t last_epd_update;
 
   stdio_init_all();
- 
+
   gpio_init(LED_PIN);
   gpio_set_dir(LED_PIN, GPIO_OUT);
   gpio_init(BTN_PIN);
@@ -664,7 +664,7 @@ int main() {
 
   state = devices_modbus_uart_init();
   if(state != 0) {
-    printf("Unable to initialise modbus: %d", state); 
+    printf("Unable to initialise modbus: %d", state);
     return state;
   }
 
@@ -675,19 +675,19 @@ int main() {
   gpio_put(LED_PIN, 0);
 
   // Main update loop
-  //  This loop should be interrupted by the alarms to update rolling 
+  //  This loop should be interrupted by the alarms to update rolling
   //  and historic data from the modbus devices
   while(1) {
     time_since_boot = time_us_64();
     gpio_put(LED_PIN, 1);
-    
+
     // update the display if adequate time has passed
     if(time_since_boot > last_epd_update ) {
       update_page();
 
       last_epd_update = time_since_boot + (EPD_REFRESH_RATE_MS * 1000);
     }
-    
+
     gpio_put(LED_PIN, 0);
     sleep_ms(STATS_UPDATE_ROLLING_MS);
   }
