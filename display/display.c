@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "display.h"
 
 #define SCREEN_W (DISPLAY_W / 8)
