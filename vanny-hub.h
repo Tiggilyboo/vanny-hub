@@ -26,7 +26,7 @@
 typedef enum {
   Overview,
   Solar,
-  Altenator,
+  Alternator,
   Statistics,
   PageContentsCount,
 } PageContents_t;
@@ -41,4 +41,3 @@ typedef struct {
   uint16_t charged_ah;
   uint16_t discharged_ah;
 } Statshot_t;
-

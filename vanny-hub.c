@@ -117,7 +117,7 @@ void update_page_overview() {
   sprintf((char*)&line, "%.2fV", bat_v);
   display_draw_text(line, DISPLAY_H / 2, DISPLAY_W / 3 + 30, Black);
 
-  display_draw_text("Altenator", 10, 50, Black);
+  display_draw_text("Alternator", 10, 50, Black);
   sprintf((char*)&line, "%dW", alt_w);
   display_draw_text(line, 100, 50, Black);
 
@@ -163,7 +163,7 @@ void update_page_solar() {
   display_draw_text(line, DISPLAY_H / 2 + 25, 95, Black);
 }
 
-void update_page_altenator() {
+void update_page_alternator() {
   char line[32];
 
   uint16_t alt_a = dcc50s_registers[DCC50S_REG_ALT_A];
@@ -173,7 +173,7 @@ void update_page_altenator() {
   uint16_t temperatures = dcc50s_registers[RVR40_REG_TEMPERATURE];
   uint16_t temperature_ctrl, temperature_aux;
 
-  display_draw_title("Altenator", 5, 12, Black);
+  display_draw_title("Alternator", 5, 12, Black);
   display_draw_text("Charge Status", DISPLAY_H / 2 + 20, 30, Black);
 
   sprintf((char*)&line, "%dA", alt_a);
@@ -200,7 +200,7 @@ void update_menu() {
 
   display_draw_xbitmap(0, menu_y, size, size, menu_home_bits);
   display_draw_xbitmap(size, menu_y, size, size, menu_solar_bits);
-  display_draw_xbitmap(size * 2, menu_y, size, size, menu_altenator_bits);
+  display_draw_xbitmap(size * 2, menu_y, size, size, menu_alternator_bits);
   display_draw_xbitmap(size * 3, menu_y, size, size, menu_stats_bits);
 
   switch(current_page) {
@@ -210,7 +210,7 @@ void update_menu() {
     case Solar:
       display_draw_rect(size, menu_y, size * 2, DISPLAY_W - 1);
       break;
-    case Altenator:
+    case Alternator:
       display_draw_rect(size * 2, menu_y, size * 3, DISPLAY_W - 1);
       break;
     case Statistics:
@@ -390,8 +390,8 @@ void update_page() {
       update_page_overview_battery();
       break;
 
-    case Altenator:
-      update_page_altenator();
+    case Alternator:
+      update_page_alternator();
       break;
 
     case Solar:
